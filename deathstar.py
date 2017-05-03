@@ -19,10 +19,12 @@ class GameSpace:
         self.keys = pygame.key.set_repeat(1,50) # helps with lag
         self.lasers = []
         self.explode = None
+        self.tester = 0
 
         #self.enemy = Enemy(self) # creates instance of enemy class
         #self.player = Player(self) # creates an instance of the player class
         self.snake = Snake(self)
+        self.food = Food(self)
 
         while not self.done:
             self.clock.tick(60)
@@ -36,6 +38,9 @@ class GameSpace:
 
             self.keys = pygame.key.get_pressed() # if the arrow keys are pressed
             self.snake.move(self.keys)
+            if self.tester == 0:
+                self.tester = self.snake.increaselen()
+            #self.snake.tick()
             
            # if self.player.shooter == True: # if the player is shooting
             #    self.lasers.append(self.player.tick()) # add lasers to the array
@@ -56,6 +61,7 @@ class GameSpace:
 
             # blits at the end 
             self.screen.fill((0, 0, 0)) # fills the background with black
+            self.screen.blit(self.food.image, self.food.rect)
             for b in self.snake.blocks:
                 self.screen.blit(b.image, b.rect)
          #   self.screen.blit(self.player.image, self.player.rect) # puts the deathstar on the screen
@@ -136,35 +142,86 @@ class Block(pygame.sprite.Sprite):
         self.rect = rect
         self.dir = direction
 
+class Food(pygame.sprite.Sprite):
+    def __init__(self, gs=None):
+        pygame.sprite.Sprite.__init__(self)
+        self.gs = gs
+        self.image = pygame.image.load('food.png')
+        self.rect = self.image.get_rect()
+        self.rect.topleft = [200, 100]
+
 class Snake(pygame.sprite.Sprite):
     def __init__(self, length, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
         self.image = pygame.image.load('laser.png')
+        self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
         self.rect = self.image.get_rect()
         self.rect.topleft = [100, 100]
         self.vel = 10
         self.blocks = []
         self.currdir = 'right'
+        self.length = 5
 
-        for i in range(0,5):
+        for i in range(0,self.length):
             image = self.image
+            head = self.head
             rect = image.get_rect()
             rect.topleft = [100, 100]
             rect = rect.move((i*-10), 0)
-            self.blocks.append(Block(image, rect, 'right'))
+            if i ==0:
+                self.blocks.append(Block(head, rect, 'right'))
+            else:
+                self.blocks.append(Block(image, rect, 'right'))
 
     def move(self, keys): 
         if keys[K_LEFT]:
             self.rect = self.rect.move((self.vel*-1), 0)
         elif keys[K_RIGHT]:
-           self.rect = self.rect.move(self.vel, 0)
+            #self.rect = self.rect.move(self.vel, 0)
+            #self.blocks[0].rect = self.rect.move(self.vel, 0)
+            for x in self.blocks: 
+                x.rect = x.rect.move(self.vel, 0)
+                #print(self.blocks[0].rect.topleft)
         elif keys[K_DOWN]:
             self.rect = self.rect.move(0, self.vel)
         elif keys[K_UP]:
             self.rect = self.rect.move(0, (self.vel*-1))
         
+    def increaselen(self):
+        if self.blocks[0].rect.topleft == (200, 100): 
+            rect1 = self.blocks[3].rect
+            rect2 = self.blocks[4].rect
+
+            rect2.topright = rect1.topleft
+
+            #self.blocks.append(Block(self.image, rect2, 'right')) # in the last slot, there is an unadjusted rectangle stored
+            self.blocks.append('') # in the last slot, there is an unadjusted rectangle stored
+            
+            self.length = 6
+
+            rect3 = rect2
+            rect3.topright = rect2.topleft
+
+            self.blocks[3] = Block(self.image, rect1, 'right')
+            self.blocks[4] = Block(self.image, rect2, 'right')
+            self.blocks[5] = Block(self.image, rect3, 'right')
+            
+            return 1
+        return 0
+
+            #for i in range(0,self.length):
+             #   image = self.image
+              #  head = self.head
+               # rect = image.get_rect()
+               # rect.topleft = [100, 100]
+               # rect = rect.move((i*-10), 0)
+               # if i ==0:
+                #    self.blocks.append(Block(head, rect, 'right'))
+               # else:
+                #    self.blocks.append(Block(image, rect, 'right'))
+
     def tick(self):
         #for i in range(0, len(self.blocks)-2):
          #   self.blocks[i+1][1] = self.blocks[i][1]
@@ -172,8 +229,7 @@ class Snake(pygame.sprite.Sprite):
         i = len(self.blocks)-1
         while i > 0:
             self.blocks[i][1] = self.blocks[i-1][1]
-
-    
+            i = i-1
 
 class Player(pygame.sprite.Sprite): # player class
     def __init__(self, gs=None):
