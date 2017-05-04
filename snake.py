@@ -28,7 +28,7 @@ class GameSpace:
         self.tester = 0
 
         # intialize game objects
-        self.snake = Snake(5, self)
+        self.snake = Snake(5, 100, 100, self)
         self.food = Food(self)
 
         while not self.done:
@@ -43,7 +43,7 @@ class GameSpace:
                      self.player.shooter = False'''
 
             self.keys = pygame.key.get_pressed() # if the arrow keys are pressed
-            self.snake.move(self.keys)
+            self.snake.changeDirection(self.keys)
             if self.tester == 0:
                 self.tester = self.snake.increaselen()
             self.snake.tick()
@@ -81,90 +81,59 @@ class Food(pygame.sprite.Sprite):
         self.rect.topleft = [200, 100]
 
 class Snake(pygame.sprite.Sprite):
-    def __init__(self, length, gs=None):
+    def __init__(self, length, xpos, ypos, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
+
+        # load images
         self.image = pygame.image.load('laser.png')
         self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
-        self.rect = self.image.get_rect()
-        self.rect.topleft = [100, 100]
+
         self.vel = 10
-        self.blocks = []
-        self.currdir = 'right'
+        self.blocks = [] # represents the body of the snake
+        self.currdir = 'right' # intial direction
         self.length = length
 
-        for i in range(0,self.length):
-            image = self.image
-            head = self.head
-            rect = image.get_rect()
-            rect.topleft = [100, 100]
-            rect = rect.move((i*-10), 0)
-            if i == 0:
-                self.blocks.append(Block(head, rect, 'right'))
+        '''push blocks into the blocks array
+        the second block (index 1) is the "head" because the first block
+        will not be displayed, and only acts as a guide for the next 
+        movement direction'''
+        for i in range(0,self.length + 1):
+            rect = self.image.get_rect()
+            rect.topleft = [xpos, ypos]
+            rect = rect.move((i*-10), 0) # translate the block to the left
+            if i == 1: # the "head"
+                self.blocks.append(Block(self.head, rect, 'right'))
             else:
-                self.blocks.append(Block(image, rect, 'right'))
+                self.blocks.append(Block(self.image, rect, 'right'))
 
-    def move(self, keys): 
+    # changes the direction of the head movement based on a keypress
+    def changeDirection(self, keys): 
         if keys[K_LEFT]:
-            self.rect = self.rect.move((self.vel*-1), 0)
+            self.blocks[0].dir = "left"
         elif keys[K_RIGHT]:
-            #self.rect = self.rect.move(self.vel, 0)
-            #self.blocks[0].rect = self.rect.move(self.vel, 0)
-            for x in self.blocks: 
-                x.rect = x.rect.move(self.vel, 0)
-                #print(self.blocks[0].rect.topleft)
+            self.blocks[0].dir = "right"
         elif keys[K_DOWN]:
-            self.rect = self.rect.move(0, self.vel)
+            self.blocks[0].dir = "down"
         elif keys[K_UP]:
             self.blocks[0].dir = "up"
-            self.rect = self.rect.move(0, (self.vel*-1))
         
     def increaselen(self):
         if self.blocks[0].rect.topleft == (200, 100): 
-            '''rect1 = self.blocks[3].rect
-            rect2 = self.blocks[4].rect
-
-            rect2.topright = rect1.topleft
-
-            #self.blocks.append(Block(self.image, rect2, 'right')) # in the last slot, there is an unadjusted rectangle stored
-            self.blocks.append('') # in the last slot, there is an unadjusted rectangle stored
             
-            self.length = 6
-
-            rect3 = rect2
-            rect3.topright = rect2.topleft
-
-            self.blocks[3] = Block(self.image, rect1, 'right')
-            self.blocks[4] = Block(self.image, rect2, 'right')
-            self.blocks[5] = Block(self.image, rect3, 'right')'''
-
+            # make a copy of the last block rect, and move it 10 units left
             rect = self.blocks[-1].rect
             rect = rect.move(-10, 0)
 
+            # add block to array
             self.blocks.append(Block(self.image, rect, 'right'))
             
             return 1
         return 0
 
-            #for i in range(0,self.length):
-             #   image = self.image
-              #  head = self.head
-               # rect = image.get_rect()
-               # rect.topleft = [100, 100]
-               # rect = rect.move((i*-10), 0)
-               # if i ==0:
-                #    self.blocks.append(Block(head, rect, 'right'))
-               # else:
-                #    self.blocks.append(Block(image, rect, 'right'))
-
     def tick(self):
 
-        for b in self.blocks:
-            print(b.dir)
-
-        print("\n")
-            
         i = len(self.blocks)-1 # start with last block
 
         # interate over all blocks and set the direction equal to the 
@@ -173,6 +142,7 @@ class Snake(pygame.sprite.Sprite):
             self.blocks[i].dir = self.blocks[i-1].dir
             i -= 1
 
+        # move each block based on its current direction
         for b in self.blocks:
             if b.dir == "right":
                 b.rect = b.rect.move(self.vel, 0)
