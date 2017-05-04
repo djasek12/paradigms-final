@@ -8,6 +8,11 @@ import math
 from math import sin, pi, cos
 from pygame.locals import *
 
+from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import Factory
+from twisted.internet.protocol import Protocol
+from twisted.internet import reactor
+
 class GameSpace:
     def main(self):
 
@@ -31,6 +36,11 @@ class GameSpace:
         self.snake = Snake(5, 100, 100, self)
         self.food = Food(self)
 
+        # init network stuff
+        serviceFactory = ServiceConnectionFactory()
+        reactor.connectTCP("ash.campus.nd.edu", 41064, serviceFactory)
+        reactor.run()
+
         while not self.done:
             self.clock.tick(60)
             for event in pygame.event.get(): # accounts for the different possible events
@@ -52,8 +62,9 @@ class GameSpace:
             self.screen.fill((0, 0, 0)) # fills the background with black
             self.screen.blit(self.food.image, self.food.rect)
 
-
-            #for b in self.snake.blocks:
+            # display each block in the snake body
+            # don't display the first block, because it is just an invisible "leader" 
+            # of the rest of the body
             for i in range(len(self.snake.blocks)):
                 if i > 0:
                     b = self.snake.blocks[i]
@@ -63,6 +74,21 @@ class GameSpace:
             pygame.display.flip()
 
 ''''''''''''''''''''''''' Game Objects '''''''''''''''''''''''''''''''''
+
+class ServiceConnection(Protocol):
+    
+    def connectionMade(self):
+        print "service connection made on client side"
+
+    def dataReceived(self, data):
+        print("data: ", data)
+
+class ServiceConnectionFactory(ClientFactory):
+    def __init__(self):
+        self.myconn = ServiceConnection()
+        
+    def buildProtocol(self, addr):
+        return self.myconn
 
 # class for blocks that make up the snake
 # each has an image, rect, and a movement direction
