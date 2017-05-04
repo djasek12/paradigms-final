@@ -37,11 +37,11 @@ class GameSpace:
         self.food = Food(self)
 
         # init network stuff
-        if sys.argv[1] == 1:
-            reactor.connectTCP("ash.campus.nd.edu", 41064, ClientConnectionFactory())
-        else:
-            reactor.connectTCP(41064, ServerConnectionFactory())
-        reactor.run()
+        # if sys.argv[1] == 1:
+        #     reactor.connectTCP("ash.campus.nd.edu", 41064, ClientConnectionFactory())
+        # else:
+        #     reactor.connectTCP(41064, ServerConnectionFactory())
+        # reactor.run()
 
         while not self.done:
             self.clock.tick(60)
@@ -83,7 +83,7 @@ class ClientConnection(Protocol):
         print "service connection made on client side"
 
     def dataReceived(self, data):
-        print("data: ", data)
+        print "data: ", data 
 
 class ClientConnectionFactory(ClientFactory):
     def __init__(self):
@@ -98,7 +98,7 @@ class ServerConnection(Protocol):
         print "service connection made on client side"
 
     def dataReceived(self, data):
-        print("data: ", data)
+        print "data: ", data 
 
 class ServerConnectionFactory(Factory):
     def __init__(self):
@@ -135,7 +135,7 @@ class Snake(pygame.sprite.Sprite):
         self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
 
-        self.vel = 10
+        self.vel = 1
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
