@@ -13,8 +13,12 @@ from twisted.internet.protocol import Factory
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
 
+from twisted.internet.task import LoopingCall
+
+import signal
+
 class GameSpace:
-    def main(self):
+    def main(self, connection):
 
         # init window
         pygame.init()
@@ -33,18 +37,16 @@ class GameSpace:
         self.tester = 0
 
         # intialize game objects
-        self.snake = Snake(30, 100, 100, self)
+        self.snake = Snake(30, 100, 100, connection, self)
+        self.enemy = Snake(30, 100, 200, self)
+
         self.food = Food(self)
 
-        # init network stuff
-        # if sys.argv[1] == 1:
-        #     reactor.connectTCP("ash.campus.nd.edu", 41064, ClientConnectionFactory())
-        # else:
-        #     reactor.connectTCP(41064, ServerConnectionFactory())
-        # reactor.run()
-
-        while not self.done:
-            self.clock.tick(60)
+    def loop(self):
+        #print "inside loop"
+        try:
+            #self.clock.tick(60)
+            #print "inside loop"
             for event in pygame.event.get(): # accounts for the different possible events
                 if event.type == pygame.QUIT: # quit
                     sys.exit()
@@ -56,9 +58,12 @@ class GameSpace:
 
             self.keys = pygame.key.get_pressed() # if the arrow keys are pressed
             self.snake.changeDirection(self.keys)
+            self.enemy.changeDirection(self.keys)
             if self.tester == 0:
                 self.tester = self.snake.increaselen()
+
             self.snake.tick()
+            self.enemy.tick()
             
             # blits sprites to screen
             self.screen.fill((0, 0, 0)) # fills the background with black
@@ -71,38 +76,58 @@ class GameSpace:
                 if i > 0:
                     b = self.snake.blocks[i]
                     self.screen.blit(b.image, b.rect)
+
+            for i in range(len(self.enemy.blocks)):
+                if i > 0:
+                    b = self.enemy.blocks[i]
+                    self.screen.blit(b.image, b.rect)
             
             # update the display
             pygame.display.flip()
+        except Exception as err:
+            print err
+
 
 ''''''''''''''''''''''''' Game Objects '''''''''''''''''''''''''''''''''
 
 class ClientConnection(Protocol):
+    def __init__(self, gs):
+        self.gs = gs
     
     def connectionMade(self):
         print "service connection made on client side"
+        self.gs.main(self)
+
+        lc = LoopingCall(self.gs.loop)
+        lc.start(.016) #1/60th of a second
 
     def dataReceived(self, data):
         print "data: ", data 
 
 class ClientConnectionFactory(ClientFactory):
-    def __init__(self):
-        self.myconn = ClientConnection()
+    def __init__(self, gs):
+        self.myconn = ClientConnection(gs)
         
     def buildProtocol(self, addr):
         return self.myconn
 
 class ServerConnection(Protocol):
+    def __init__(self, gs):
+        self.gs = gs
     
     def connectionMade(self):
-        print "service connection made on client side"
+        print "service connection made on server side"
+        self.gs.main(self)
+        lc = LoopingCall(self.gs.loop)
+        lc.start(.016) #1/60th of a second
 
     def dataReceived(self, data):
         print "data: ", data 
 
 class ServerConnectionFactory(Factory):
-    def __init__(self):
-        self.myconn = ServerConnection()
+    def __init__(self, gs):
+        self.myconn = ServerConnection(gs)
+        
         
     def buildProtocol(self, addr):
         return self.myconn
@@ -126,7 +151,7 @@ class Food(pygame.sprite.Sprite):
         self.rect.topleft = [200, 100]
 
 class Snake(pygame.sprite.Sprite):
-    def __init__(self, length, xpos, ypos, gs=None):
+    def __init__(self, length, xpos, ypos, connection, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
 
@@ -139,6 +164,8 @@ class Snake(pygame.sprite.Sprite):
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
+
+        self.connection = connection
 
         # push blocks into the blocks array
         # the second block (index 1) is the "head" because the first block
@@ -164,6 +191,7 @@ class Snake(pygame.sprite.Sprite):
             self.blocks[0].dir = "down"
         elif keys[K_UP] and not self.blocks[0].dir == "down":
             self.blocks[0].dir = "up"
+            self.connection.transport.write("going up")
         
     def increaselen(self):
         if self.blocks[0].rect.topleft == (200, 100): 
@@ -325,4 +353,24 @@ class Player(pygame.sprite.Sprite): # player class
 
 if __name__ == '__main__':
     gs = GameSpace()
-    gs.main()
+
+    # init network stuff
+    if sys.argv[1] == "master":
+        print "listening"
+        reactor.listenTCP(41064, ServerConnectionFactory(gs))
+    else:
+        reactor.connectTCP("localhost", 41064, ClientConnectionFactory(gs))
+
+    # def signal_handler(signal, frame):
+    #     print('You pressed Ctrl+C!')
+    #     sys.exit(0)
+    # signal.signal(signal.SIGINT, signal_handler)
+
+    #gs.main()
+
+    try:
+        reactor.run()
+    except Exception as err:
+        print err
+
+
