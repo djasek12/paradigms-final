@@ -49,7 +49,10 @@ class GameSpace:
             #print "inside loop"
             for event in pygame.event.get(): # accounts for the different possible events
                 if event.type == pygame.QUIT: # quit
+                    pygame.quit()
+                    reactor.stop()
                     sys.exit()
+
                     
                 '''if event.type == MOUSEBUTTONDOWN: #if the mouse is clicked
                      self.player.shooter = True
