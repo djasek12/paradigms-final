@@ -28,7 +28,7 @@ class GameSpace:
         self.tester = 0
 
         # intialize game objects
-        self.snake = Snake(20, self)
+        self.snake = Snake(5, self)
         self.food = Food(self)
 
         while not self.done:
@@ -51,8 +51,13 @@ class GameSpace:
             # blits sprites to screen
             self.screen.fill((0, 0, 0)) # fills the background with black
             self.screen.blit(self.food.image, self.food.rect)
-            for b in self.snake.blocks:
-                self.screen.blit(b.image, b.rect)
+
+
+            #for b in self.snake.blocks:
+            for i in range(len(self.snake.blocks)):
+                if i > 0:
+                    b = self.snake.blocks[i]
+                    self.screen.blit(b.image, b.rect)
             
             # update the display
             pygame.display.flip()
