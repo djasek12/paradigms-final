@@ -33,7 +33,7 @@ class GameSpace:
         self.tester = 0
 
         # intialize game objects
-        self.snake = Snake(5, 100, 100, self)
+        self.snake = Snake(30, 100, 100, self)
         self.food = Food(self)
 
         # init network stuff
@@ -135,15 +135,15 @@ class Snake(pygame.sprite.Sprite):
         self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
 
-        self.vel = 1
+        self.vel = 5
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
 
-        '''push blocks into the blocks array
-        the second block (index 1) is the "head" because the first block
-        will not be displayed, and only acts as a guide for the next 
-        movement direction'''
+        # push blocks into the blocks array
+        # the second block (index 1) is the "head" because the first block
+        # will not be displayed, and only acts as a guide for the next 
+        # movement direction
         for i in range(0,self.length + 1):
             rect = self.image.get_rect()
             rect.topleft = [xpos, ypos]
@@ -154,14 +154,15 @@ class Snake(pygame.sprite.Sprite):
                 self.blocks.append(Block(self.image, rect, 'right'))
 
     # changes the direction of the head movement based on a keypress
+    # prevent user from going opposite direction of current movement
     def changeDirection(self, keys): 
-        if keys[K_LEFT]:
+        if keys[K_LEFT] and not self.blocks[0].dir == "right":
             self.blocks[0].dir = "left"
-        elif keys[K_RIGHT]:
+        elif keys[K_RIGHT] and not self.blocks[0].dir == "left":
             self.blocks[0].dir = "right"
-        elif keys[K_DOWN]:
+        elif keys[K_DOWN] and not self.blocks[0].dir == "up":
             self.blocks[0].dir = "down"
-        elif keys[K_UP]:
+        elif keys[K_UP] and not self.blocks[0].dir == "down":
             self.blocks[0].dir = "up"
         
     def increaselen(self):
@@ -184,7 +185,16 @@ class Snake(pygame.sprite.Sprite):
         # interate over all blocks and set the direction equal to the 
         # block ahead of it
         while i > 0:
-            self.blocks[i].dir = self.blocks[i-1].dir
+            # if the next block is moving up or down, wait until until our x position
+            # is evenly divisible by the block size (10), and then change direction
+            if self.blocks[i-1].dir == "up" or self.blocks[i-1].dir == "down":
+                if self.blocks[i].rect.topleft[0] % 10 == 0:
+                    self.blocks[i].dir = self.blocks[i-1].dir
+            # if the next block is moving left or right, wait until until our y position
+            # is evenly divisible by the block size, and then change direction
+            else:
+                if self.blocks[i].rect.topleft[1] % 10 == 0:
+                    self.blocks[i].dir = self.blocks[i-1].dir
             i -= 1
 
         # move each block based on its current direction
