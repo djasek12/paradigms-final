@@ -37,8 +37,10 @@ class GameSpace:
         self.food = Food(self)
 
         # init network stuff
-        serviceFactory = ServiceConnectionFactory()
-        reactor.connectTCP("ash.campus.nd.edu", 41064, serviceFactory)
+        if sys.argv[1] == 1:
+            reactor.connectTCP("ash.campus.nd.edu", 41064, ClientConnectionFactory())
+        else:
+            reactor.connectTCP(41064, ServerConnectionFactory())
         reactor.run()
 
         while not self.done:
@@ -75,7 +77,7 @@ class GameSpace:
 
 ''''''''''''''''''''''''' Game Objects '''''''''''''''''''''''''''''''''
 
-class ServiceConnection(Protocol):
+class ClientConnection(Protocol):
     
     def connectionMade(self):
         print "service connection made on client side"
@@ -83,12 +85,29 @@ class ServiceConnection(Protocol):
     def dataReceived(self, data):
         print("data: ", data)
 
-class ServiceConnectionFactory(ClientFactory):
+class ClientConnectionFactory(ClientFactory):
     def __init__(self):
-        self.myconn = ServiceConnection()
+        self.myconn = ClientConnection()
         
     def buildProtocol(self, addr):
         return self.myconn
+
+class ServerConnection(Protocol):
+    
+    def connectionMade(self):
+        print "service connection made on client side"
+
+    def dataReceived(self, data):
+        print("data: ", data)
+
+class ServerConnectionFactory(Factory):
+    def __init__(self):
+        self.myconn = ServerConnection()
+        
+    def buildProtocol(self, addr):
+        return self.myconn
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 # class for blocks that make up the snake
 # each has an image, rect, and a movement direction
