@@ -18,7 +18,7 @@ from twisted.internet.task import LoopingCall
 import signal
 
 class GameSpace:
-    def main(self, connection):
+    def main(self, connection, player):
 
         # init window
         pygame.init()
@@ -36,32 +36,35 @@ class GameSpace:
         self.explode = None
         self.tester = 0
 
-        # intialize game objects
-        self.snake = Snake(30, 100, 100, connection, self)
-        self.enemy = Snake(30, 100, 200, self)
+        self.connection = connection
+        self.player = player
 
+        # intialize game objects
+        if self.player == 0:
+            self.snake = Snake(30, 100, 100, connection, self)
+            self.enemy = Snake(30, 100, 200, self)
+        else:
+            self.snake = Snake(30, 100, 200, connection, self)
+            self.enemy = Snake(30, 100, 100, self)
+        
         self.food = Food(self)
 
     def loop(self):
-        #print "inside loop"
         try:
             #self.clock.tick(60)
-            #print "inside loop"
             for event in pygame.event.get(): # accounts for the different possible events
-                if event.type == pygame.QUIT: # quit
+                if event.type == pygame.KEYDOWN:
+                    self.key = pygame.key.get_pressed() # if the arrow keys are pressed
+                    self.snake.changeDirection(self.key, self.player, self.connection)
+                    #self.connection.transport.write("direction changed")
+                    #self.enemy.changeDirection(self.key)
+                elif event.type == pygame.QUIT: # quit
                     pygame.quit()
                     reactor.stop()
                     sys.exit()
+                
 
-                    
-                '''if event.type == MOUSEBUTTONDOWN: #if the mouse is clicked
-                     self.player.shooter = True
-                 elif event.type == MOUSEBUTTONUP: # if the mouse is released
-                     self.player.shooter = False'''
-
-            self.keys = pygame.key.get_pressed() # if the arrow keys are pressed
-            self.snake.changeDirection(self.keys)
-            self.enemy.changeDirection(self.keys)
+            
             if self.tester == 0:
                 self.tester = self.snake.increaselen()
 
@@ -90,6 +93,16 @@ class GameSpace:
         except Exception as err:
             print err
 
+    def listenForDirectionChange(self, direction):
+        if direction == "right":
+            self.enemy.blocks[0].dir = "right"
+        elif direction == "left":
+            self.enemy.blocks[0].dir = "left"
+        elif direction == "up":
+            self.enemy.blocks[0].dir = "up"
+        elif direction == "down":
+            self.enemy.blocks[0].dir = "down"
+
 
 ''''''''''''''''''''''''' Game Objects '''''''''''''''''''''''''''''''''
 
@@ -99,13 +112,15 @@ class ClientConnection(Protocol):
     
     def connectionMade(self):
         print "service connection made on client side"
-        self.gs.main(self)
+        self.gs.main(self, 1)
 
         lc = LoopingCall(self.gs.loop)
         lc.start(.016) #1/60th of a second
+        #lc.start(.02) #1/60th of a second
 
     def dataReceived(self, data):
         print "data: ", data 
+        self.gs.listenForDirectionChange(data)
 
 class ClientConnectionFactory(ClientFactory):
     def __init__(self, gs):
@@ -120,12 +135,14 @@ class ServerConnection(Protocol):
     
     def connectionMade(self):
         print "service connection made on server side"
-        self.gs.main(self)
+        self.gs.main(self, 0)
         lc = LoopingCall(self.gs.loop)
         lc.start(.016) #1/60th of a second
+        #lc.start(.1) #1/60th of a second
 
     def dataReceived(self, data):
-        print "data: ", data 
+        print "data: ", data
+        self.gs.listenForDirectionChange(data)
 
 class ServerConnectionFactory(Factory):
     def __init__(self, gs):
@@ -163,7 +180,7 @@ class Snake(pygame.sprite.Sprite):
         self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
 
-        self.vel = 5
+        self.vel = 1
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
@@ -185,16 +202,33 @@ class Snake(pygame.sprite.Sprite):
 
     # changes the direction of the head movement based on a keypress
     # prevent user from going opposite direction of current movement
-    def changeDirection(self, keys): 
-        if keys[K_LEFT] and not self.blocks[0].dir == "right":
-            self.blocks[0].dir = "left"
-        elif keys[K_RIGHT] and not self.blocks[0].dir == "left":
-            self.blocks[0].dir = "right"
-        elif keys[K_DOWN] and not self.blocks[0].dir == "up":
-            self.blocks[0].dir = "down"
-        elif keys[K_UP] and not self.blocks[0].dir == "down":
-            self.blocks[0].dir = "up"
-            self.connection.transport.write("going up")
+    def changeDirection(self, keys, player, connection): 
+        if player == 0:
+            if keys[K_LEFT] and not self.blocks[0].dir == "right":
+                self.blocks[0].dir = "left"
+                connection.transport.write("left")
+            elif keys[K_RIGHT] and not self.blocks[0].dir == "left":
+                self.blocks[0].dir = "right"
+                connection.transport.write("right")
+            elif keys[K_DOWN] and not self.blocks[0].dir == "up":
+                self.blocks[0].dir = "down"
+                connection.transport.write("down")
+            elif keys[K_UP] and not self.blocks[0].dir == "down":
+                self.blocks[0].dir = "up"
+                connection.transport.write("up")
+        else:
+            if keys[K_a] and not self.blocks[0].dir == "right":
+                self.blocks[0].dir = "left"
+                connection.transport.write("left")
+            elif keys[K_d] and not self.blocks[0].dir == "left":
+                self.blocks[0].dir = "right"
+                connection.transport.write("right")
+            elif keys[K_s] and not self.blocks[0].dir == "up":
+                self.blocks[0].dir = "down"
+                connection.transport.write("down")
+            elif keys[K_w] and not self.blocks[0].dir == "down":
+                self.blocks[0].dir = "up"
+                connection.transport.write("up")
         
     def increaselen(self):
         if self.blocks[0].rect.topleft == (200, 100): 
