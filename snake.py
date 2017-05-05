@@ -12,20 +12,25 @@ from twisted.internet.protocol import ClientFactory
 from twisted.internet.protocol import Factory
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
-
 from twisted.internet.task import LoopingCall
 
-import signal
 
 class GameSpace:
     def main(self, connection, player):
+
+        self.connection = connection
+        self.player = player
 
         # init window
         pygame.init()
         self.size = 600
         self.screen = pygame.display.set_mode((self.size,self.size)) # sets the window size
-        pygame.display.set_caption('Paradigms Final') # sets the window caption
         pygame.mouse.set_visible(1) # makes the mouse visible
+
+        if self.player == 0:
+            pygame.display.set_caption('Player 1')
+        else:
+            pygame.display.set_caption('Player 2')
 
         self.clock = pygame.time.Clock() # initializes the clock
 
@@ -35,10 +40,7 @@ class GameSpace:
         self.lasers = []
         self.explode = None
         self.tester = 0
-
-        self.connection = connection
-        self.player = player
-
+        
         # intialize game objects
         if self.player == 0:
             self.snake = Snake(30, 100, 100, connection, self)
@@ -50,50 +52,45 @@ class GameSpace:
         self.food = Food(self)
 
     def loop(self):
-        try:
-            #self.clock.tick(60)
-            for event in pygame.event.get(): # accounts for the different possible events
-                if event.type == pygame.KEYDOWN:
-                    self.key = pygame.key.get_pressed() # if the arrow keys are pressed
-                    self.snake.changeDirection(self.key, self.player, self.connection)
-                    #self.connection.transport.write("direction changed")
-                    #self.enemy.changeDirection(self.key)
-                elif event.type == pygame.QUIT: # quit
-                    pygame.quit()
-                    reactor.stop()
-                    sys.exit()
-                
-
+        #self.clock.tick(60)
+        for event in pygame.event.get(): # accounts for the different possible events
+            if event.type == pygame.KEYDOWN:
+                self.key = pygame.key.get_pressed()
+                self.snake.changeDirection(self.key, self.player, self.connection)
+            elif event.type == pygame.QUIT: # quit pygame and twisted and exit
+                pygame.quit()
+                reactor.stop()
+                sys.exit()
             
-            if self.tester == 0:
-                self.tester = self.snake.increaselen()
+        # if self.tester == 0:
+        #     self.tester = self.snake.increaselen()
 
-            self.snake.tick()
-            self.enemy.tick()
-            
-            # blits sprites to screen
-            self.screen.fill((0, 0, 0)) # fills the background with black
-            self.screen.blit(self.food.image, self.food.rect)
+        self.snake.tick()
+        self.enemy.tick()
+        
+        # blits sprites to screen
+        self.screen.fill((0, 0, 0)) # fills the background with black
+        self.screen.blit(self.food.image, self.food.rect)
 
-            # display each block in the snake body
-            # don't display the first block, because it is just an invisible "leader" 
-            # of the rest of the body
-            for i in range(len(self.snake.blocks)):
-                if i > 0:
-                    b = self.snake.blocks[i]
-                    self.screen.blit(b.image, b.rect)
+        # display each block in the snake body
+        # don't display the first block, because it is just an invisible "leader" 
+        # of the rest of the body
+        for i in range(len(self.snake.blocks)):
+            if i > 0:
+                b = self.snake.blocks[i]
+                self.screen.blit(b.image, b.rect)
 
-            for i in range(len(self.enemy.blocks)):
-                if i > 0:
-                    b = self.enemy.blocks[i]
-                    self.screen.blit(b.image, b.rect)
-            
-            # update the display
-            pygame.display.flip()
-        except Exception as err:
-            print err
+        for i in range(len(self.enemy.blocks)):
+            if i > 0:
+                b = self.enemy.blocks[i]
+                self.screen.blit(b.image, b.rect)
+        
+        # update the display
+        pygame.display.flip()
+        
 
-    def listenForDirectionChange(self, direction):
+    # handler function that update enemy direction when received from network
+    def enemyDirectionHandler(self, direction):
         if direction == "right":
             self.enemy.blocks[0].dir = "right"
         elif direction == "left":
@@ -103,24 +100,67 @@ class GameSpace:
         elif direction == "down":
             self.enemy.blocks[0].dir = "down"
 
+    # sends each block position in string form to the other player
+    # used to sync up players every once in a while
+    def sendPosition(self):
+        for i in range(len(self.snake.blocks)):
+            b = self.snake.blocks[i]
+            data = str(i) + ":" + str(b.rect.topleft[0]) + ":" + str(b.rect.topleft[1]) + ":" + b.dir + "\n"
+            self.connection.transport.write(data)
 
-''''''''''''''''''''''''' Game Objects '''''''''''''''''''''''''''''''''
+    # handler function for receiving full position data
+    def receivePosition(self, data):
+        data = data.split("\n")
+        for d in data: 
+            d = d.strip()
+            if len(d) > 1: # not a random empty whitespace line
+                d = d.strip()
+                d = d.split(":")
+                #print "--d:", d, "--"
 
+                # attempt to parse positional and directional data out of line
+                # sometimes the line is malformed, so we need to try/except these cases
+                # and just update the block later
+                try:
+                    index = int(d[0])
+                    xpos = int(d[1])
+                    ypos = int(d[2])
+                    self.enemy.blocks[index].rect.topleft = (xpos, ypos) #update the enemy position at the proper index
+                    if d[3] == "right" or d[3] == "left" or d[3] == "up" or d[3] == "down":
+                        self.enemy.blocks[index].dir = d[3]
+                except Exception as ex:
+                    print ex
+                    pass
+
+# Network Classes
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+# client connection class - used by player 2
 class ClientConnection(Protocol):
     def __init__(self, gs):
         self.gs = gs
     
     def connectionMade(self):
         print "service connection made on client side"
-        self.gs.main(self, 1)
+        self.gs.main(self, 1) #start playing as player 2
 
-        lc = LoopingCall(self.gs.loop)
-        lc.start(.016) #1/60th of a second
-        #lc.start(.02) #1/60th of a second
+        # set up and start loop to run the main function
+        mainLoop = LoopingCall(self.gs.loop)
+        mainLoop.start(.1) #1/60th of a second
+
+        # set up and start loop to run the sync position function
+        syncLoop = LoopingCall(self.gs.sendPosition)
+        syncLoop.start(5)
 
     def dataReceived(self, data):
-        print "data: ", data 
-        self.gs.listenForDirectionChange(data)
+        #print "data: ", data 
+
+        # check if data is just a direction change
+        if data == "right" or data == "left" or data == "up" or data == "down":
+            #pass
+            self.gs.enemyDirectionHandler(data)
+        else: # we are syncing up positions completely
+            self.gs.receivePosition(data)
 
 class ClientConnectionFactory(ClientFactory):
     def __init__(self, gs):
@@ -129,20 +169,28 @@ class ClientConnectionFactory(ClientFactory):
     def buildProtocol(self, addr):
         return self.myconn
 
+# connection for player 1
 class ServerConnection(Protocol):
     def __init__(self, gs):
         self.gs = gs
     
     def connectionMade(self):
         print "service connection made on server side"
-        self.gs.main(self, 0)
-        lc = LoopingCall(self.gs.loop)
-        lc.start(.016) #1/60th of a second
-        #lc.start(.1) #1/60th of a second
+        self.gs.main(self, 0) # start playing as player one
+
+        mainLoop = LoopingCall(self.gs.loop)
+        mainLoop.start(.1) #1/60th of a second
+
+        syncLoop = LoopingCall(self.gs.sendPosition)
+        syncLoop.start(5)
 
     def dataReceived(self, data):
-        print "data: ", data
-        self.gs.listenForDirectionChange(data)
+        #print "data: ", data 
+        if data == "right" or data == "left" or data == "up" or data == "down":
+            #pass
+            self.gs.enemyDirectionHandler(data)
+        else:
+            self.gs.receivePosition(data)
 
 class ServerConnectionFactory(Factory):
     def __init__(self, gs):
@@ -152,6 +200,7 @@ class ServerConnectionFactory(Factory):
     def buildProtocol(self, addr):
         return self.myconn
 
+# Game Objects
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 # class for blocks that make up the snake
@@ -202,6 +251,7 @@ class Snake(pygame.sprite.Sprite):
 
     # changes the direction of the head movement based on a keypress
     # prevent user from going opposite direction of current movement
+    # player 1 uses arrow keys, player 2 uses asdw
     def changeDirection(self, keys, player, connection): 
         if player == 0:
             if keys[K_LEFT] and not self.blocks[0].dir == "right":
@@ -274,140 +324,22 @@ class Snake(pygame.sprite.Sprite):
                 b.rect = b.rect.move(0, self.vel)
 
 
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-class Explosion(pygame.sprite.Sprite): # the explosion class
-    def __init__(self, gs=None):
-        pygame.sprite.Sprite.__init__(self)
-        self.gs = gs
-        self.image = pygame.image.load('explosion/frames016a.png')
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (350, 350) # positions the explosion
-        self.frame = 0
-        self.num = 0
-
-    def tick(self):
-        self.num += 1
-        if self.num == 3:
-            if self.frame < 16: # set what should be displayed
-                filename = 'explosion/frames{0:03d}a.png'.format(self.frame)
-                self.image = pygame.image.load(filename)
-                self.frame += 1
-            else:
-                self.image = pygame.image.load('empty.png')
-            self.num = 0
-
-class Enemy(pygame.sprite.Sprite): # enemy class
-    def __init__(self, gs=None):
-        pygame.sprite.Sprite.__init__(self)
-        self.gs = gs
-        self.image = pygame.image.load('globe.png')
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (350, 350)
-        self.points = 300
-        self.collision = 0
-
-    def tick(self, lasers):
-        for i in range(0, len(lasers)):
-            if self.rect.colliderect(lasers[i].rect): # if the lasers are detected
-                self.points -= 1 # adjust the hitpoints
-
-        if self.points <= 100: # account for the red earth
-            self.image = pygame.image.load('globe_red100.png')
-            self.rect = self.image.get_rect()
-            self.rect.topleft = (350, 350)
-        if self.points <= 0:
-            self.image = pygame.image.load('empty.png') # clear once the earth has been "destroyed"
-            return True
-
-class Laser(pygame.sprite.Sprite): # laser class
-    def __init__(self, x, y, angle, gs=None):
-        pygame.sprite.Sprite.__init__(self)
-        self.gs = gs
-        self.image = pygame.image.load('laser.png')
-        self.rect = self.image.get_rect()
-        self.cannonX = x
-        self.cannonY = y
-        self.angle = angle
-        self.rect.center = self.cannonX*cos(self.angle), self.cannonY*sin(self.angle)
-        self.outOfRange = False
-
-    def tick(self):
-        self.cannonX = self.cannonX - (8*cos(self.angle))
-        self.cannonY = self.cannonY - (8*sin(self.angle))
-        self.rect.center = (self.cannonX, self.cannonY) # calculates new center
-        if self.cannonX < 0 or self.cannonX > self.gs.size or self.cannonY < 0 or self.cannonY > self.gs.size: # sets the laser bounds
-            self.outOfRange = True
-
-
-class Player(pygame.sprite.Sprite): # player class
-    def __init__(self, gs=None):
-        pygame.sprite.Sprite.__init__(self)
-        self.gs = gs
-        self.image = pygame.image.load('deathstar.png')
-        self.original = pygame.image.load('deathstar.png') # sets original image for rotation
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (170, 170)
-        self.newangle_degrees = 0
-        self.newangle_rads = 0
-        self.shooter = False
-
-    def move(self, keys): # moving based on the arrow keys
-        if keys[K_LEFT]:
-            self.rect = self.rect.move(-7, 0)
-        elif keys[K_RIGHT]:
-           self.rect = self.rect.move(7, 0)
-        elif keys[K_DOWN]:
-            self.rect = self.rect.move(0, 7)
-        elif keys[K_UP]:
-            self.rect = self.rect.move(0, -7)
-
-    def tick(self): # handles if the death star is shooting and rotating based on the mouse
-
-        if self.shooter == True:
-            return self.shoot()
-        else:
-            xpos, ypos = pygame.mouse.get_pos()
-            newx = self.rect.centerx - xpos
-            newy = self.rect.centery - ypos
-
-            self.newangle_rads = math.atan2(newx, newy) # uses trig to calculate the angle to rotate
-            self.newangle_degrees = ((180/math.pi)* self.newangle_rads)+45
-
-            orig_rect = self.rect
-            rot_image = pygame.transform.rotate(self.original, self.newangle_degrees) # rotates
-            rot_rect = orig_rect.copy() # creates a copy of the rectangle
-
-            rot_rect.center = rot_image.get_rect().center
-            rot_image = rot_image.subsurface(rot_rect).copy()
-            self.image = rot_image # sets the rotated image to the image displayed
-
-    def shoot(self): # if shooting, return a laser object
-        return Laser(self.rect.centerx-(30*cos(self.newangle_riads)), self.rect.centery-(30*sin(self.newangle_rads)), self.newangle_rads, self.gs)
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 if __name__ == '__main__':
     gs = GameSpace()
 
+    if len(sys.argv) < 2:
+        print "usage: python snake.py <master | client>"
+        sys.exit(1)
+
     # init network stuff
     if sys.argv[1] == "master":
-        print "listening"
+        print "listening..."
         reactor.listenTCP(41064, ServerConnectionFactory(gs))
     else:
         reactor.connectTCP("localhost", 41064, ClientConnectionFactory(gs))
 
-    # def signal_handler(signal, frame):
-    #     print('You pressed Ctrl+C!')
-    #     sys.exit(0)
-    # signal.signal(signal.SIGINT, signal_handler)
-
-    #gs.main()
-
+    # start event loop
     try:
         reactor.run()
     except Exception as err:
         print err
-
-
