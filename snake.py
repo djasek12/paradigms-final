@@ -14,6 +14,10 @@ from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 
+MAIN_LOOP_DELAY = .016
+SYNC_LOOP_DELAY = 2
+SNAKE_LENGTH = 30
+SNAKE_VEL = 1
 
 class GameSpace:
     def main(self, connection, player):
@@ -43,16 +47,16 @@ class GameSpace:
         
         # intialize game objects
         if self.player == 0:
-            self.snake = Snake(30, 100, 100, connection, self)
-            self.enemy = Snake(30, 100, 200, self)
+            self.snake = Snake(SNAKE_LENGTH, 100, 100, connection, self)
+            self.enemy = Snake(SNAKE_LENGTH, 100, 200, self)
         else:
-            self.snake = Snake(30, 100, 200, connection, self)
-            self.enemy = Snake(30, 100, 100, self)
+            self.snake = Snake(SNAKE_LENGTH, 100, 200, connection, self)
+            self.enemy = Snake(SNAKE_LENGTH, 100, 100, self)
         
         self.food = Food(self)
 
     def loop(self):
-        #self.clock.tick(60)
+        self.clock.tick(60)
         for event in pygame.event.get(): # accounts for the different possible events
             if event.type == pygame.KEYDOWN:
                 self.key = pygame.key.get_pressed()
@@ -146,11 +150,11 @@ class ClientConnection(Protocol):
 
         # set up and start loop to run the main function
         mainLoop = LoopingCall(self.gs.loop)
-        mainLoop.start(.1) #1/60th of a second
+        mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
 
         # set up and start loop to run the sync position function
         syncLoop = LoopingCall(self.gs.sendPosition)
-        syncLoop.start(5)
+        syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
         #print "data: ", data 
@@ -179,10 +183,10 @@ class ServerConnection(Protocol):
         self.gs.main(self, 0) # start playing as player one
 
         mainLoop = LoopingCall(self.gs.loop)
-        mainLoop.start(.1) #1/60th of a second
+        mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
 
         syncLoop = LoopingCall(self.gs.sendPosition)
-        syncLoop.start(5)
+        syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
         #print "data: ", data 
@@ -229,7 +233,7 @@ class Snake(pygame.sprite.Sprite):
         self.head = pygame.image.load('head.png')
         self.orig = pygame.image.load('laser.png')
 
-        self.vel = 1
+        self.vel = SNAKE_VEL
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
