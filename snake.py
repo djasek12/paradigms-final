@@ -1,6 +1,6 @@
 # Jessica Cioffi
 # Daniel Jasek
-# Programmiing Paradigms Final
+# Programming Paradigms Final
 
 import os, sys
 import pygame
@@ -10,7 +10,6 @@ from math import sin, pi, cos
 from random import randint
 
 from pygame.locals import *
-
 
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.protocol import Factory
@@ -67,11 +66,16 @@ class GameSpace:
         for j in self.foodlog:
             self.food.append(Food(j[0], j[1], self))
 
+        # init game over messages
         pygame.font.init()
-        myfont = pygame.font.SysFont('monospace', 30)
-        self.textsurface = myfont.render('Game Over', True, (0, 255, 0))
+        font = pygame.font.SysFont('monospace', 30)
+        self.textsurface = font.render('Game Over', True, (0, 255, 0))
+        self.winMessage = font.render('You Won!', True, (0, 255, 0))
+        self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
 
         self.gameover = False
+        self.win = False
+        self.lose = False
 
 
     def loop(self):
@@ -82,16 +86,15 @@ class GameSpace:
 
                 self.key = pygame.key.get_pressed()
 
-                if self.key[K_q]:
-                    self.main(self.connection, self.player)
-                    self.connection.transport.write("restart")
+                if self.key[K_r]:
+                    self.main(self.connection, self.player) # re-initialize the game
+                    #signal the other player to also reinitialize their game
+                    self.connection.transport.write("restart") 
 
                 else:
                     self.snake.changeDirection(self.key, self.player, self.connection)
-    
 
             elif event.type == pygame.QUIT: # quit pygame and twisted and exit
-
                 #self.sendQuit()
                 self.quit()
 
@@ -107,18 +110,10 @@ class GameSpace:
 #        self.enemy.foodcollide(self.food)
        
             # bounding for the wall
-            self.keepPlaying = self.snake.wallcollide() and self.enemy.wallcollide()
-        
-        # if self.keepPlaying == False:
-        #     "print sending game over"
-        #     self.sendGameOver()
-
-        # if self.keepPlaying == False:
-        #     # end the game
-        #     print "the game should exit here"
-        #     os._exit() # for now until we make an exit stage
-
-
+            self.lose = not(self.snake.wallcollide())
+            self.win = not(self.enemy.wallcollide())
+            self.keepPlaying = not(self.lose or self.win)
+    
 
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
@@ -126,8 +121,15 @@ class GameSpace:
         for x in self.food:
             self.screen.blit(x.image, x.rect)
 
+
+        # display end game messages    
         if not self.keepPlaying:
             self.screen.blit(self.textsurface,(self.size/2 - 100, self.size/2 - 100))
+            if self.win:
+                self.screen.blit(self.winMessage,(self.size/2 - 100, self.size/2))
+            if self.lose:
+               self.screen.blit(self.loseMessage,(self.size/2 - 100, self.size/2))
+
 
         # display each block in the snake body
         # don't display the first block, because it is just an invisible "leader" 
@@ -203,8 +205,6 @@ class GameSpace:
         reactor.stop()
         #sys.exit()
 
-    def sendGameOver(self):
-        self.connection.transport.write("game over")
 
 
 # Network Classes
@@ -228,7 +228,7 @@ class ClientConnection(Protocol):
         self.syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
-        print "data: #", data, "#"
+        #print "data: #", data, "#"
 
         # check if data is just a direction change
         if data == "right" or data == "left" or data == "up" or data == "down":
@@ -240,10 +240,10 @@ class ClientConnection(Protocol):
             print "received game over signal"
             self.gs.keepPlaying == False
         elif data == "restart":
-            self.mainLoop.stop()
+            #self.mainLoop.stop()
             self.gs.keepPlaying = True
             self.gs.main(self, 1)
-            self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
+            #self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else: # we are syncing up positions completely
             self.gs.receivePosition(data)
 
@@ -278,10 +278,10 @@ class ServerConnection(Protocol):
         elif data == "quit":
             self.gs.quit()
         elif data == "restart":
-            self.mainLoop.stop()
+            #self.mainLoop.stop()
             self.gs.keepPlaying = True
             self.gs.main(self, 0)
-            self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
+            #self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else:
             self.gs.receivePosition(data)
 
