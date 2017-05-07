@@ -30,6 +30,7 @@ class GameSpace:
 
         # init window
         pygame.init()
+        self.keepPlaying = True
         self.size = 600
         self.screen = pygame.display.set_mode((self.size,self.size)) # sets the window size
         pygame.mouse.set_visible(1) # makes the mouse visible
@@ -81,9 +82,18 @@ class GameSpace:
         for y in self.food:
             y.tick(self.food) # passes in list of positions to update if eaten
       
-        self.snake.foodcollide(self.food)
+#        self.snake.foodcollide(self.food)
 #        self.enemy.foodcollide(self.food)
-        
+       
+        # bounding for the wall
+        self.keepPlaying = self.snake.wallcollide()
+        self.keepPlaying = self.enemy.wallcollide()
+
+        if self.keepPlaying == False:
+            # end the game
+            print "the game should exit here"
+            os._exit() # for now until we make an exit stage
+
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
         
@@ -333,9 +343,25 @@ class Snake(pygame.sprite.Sprite):
                         print food[x].display
         #    print "it didnt find anything"
 
-    #def wallcollide(self):
-        
-
+    def wallcollide(self): 
+        # OS exit calls are temporary freezes until we have the exit display working
+        if self.blocks[1].rect.topleft[1] == 0:
+            print "you died on the top of the screen"
+            self.alive = False
+            print "alive status is now: ", self.alive
+        if self.blocks[1].rect.bottomleft[1] == 600:
+            print "you died on the bottom of the screen"
+            self.alive = False
+            print "alive status is now: ", self.alive
+        if self.blocks[1].rect.bottomright[0] == 600:
+            print "you died on the right of the screen"
+            self.alive = False
+            print "alive status is now: ", self.alive
+        if self.blocks[1].rect.topleft[0] == 0:
+            print "you died on the left of the screen"
+            self.alive = False
+            print "alive status is now: ", self.alive
+        return self.alive
 
     def tick(self):
 
