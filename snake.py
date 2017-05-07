@@ -6,7 +6,10 @@ import os, sys
 import pygame
 import math
 from math import sin, pi, cos
+from random import randint
+
 from pygame.locals import *
+
 
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.protocol import Factory
@@ -41,9 +44,6 @@ class GameSpace:
         # set up game variables
         self.done = False # sets the loop determinant
         self.keys = pygame.key.set_repeat(1,50) # helps with lag
-        self.lasers = []
-        self.explode = None
-        self.tester = 0
         
         # intialize game objects
         if self.player == 0:
@@ -52,8 +52,18 @@ class GameSpace:
         else:
             self.snake = Snake(SNAKE_LENGTH, 100, 200, connection, self)
             self.enemy = Snake(SNAKE_LENGTH, 100, 100, self)
-        
-        self.food = Food(self)
+
+        # initializing food
+        self.food = [] # list to store food objects
+        self.foodlog = [] # list to store food positions on board
+        for i in range(0,9): # for number of food objects on board at one time
+            x = randint(1,599)
+            y = randint(1,599)
+            self.foodlog.append((x,y))
+
+        # add food objects to list
+        for j in self.foodlog:
+            self.food.append(Food(j[0], j[1], self))
 
     def loop(self):
         self.clock.tick(60)
@@ -66,15 +76,19 @@ class GameSpace:
                 reactor.stop()
                 sys.exit()
             
-        # if self.tester == 0:
-        #     self.tester = self.snake.increaselen()
-
         self.snake.tick()
         self.enemy.tick()
+        for y in self.food:
+            y.tick(self.food) # passes in list of positions to update if eaten
+      
+        self.snake.foodcollide(self.food)
+#        self.enemy.foodcollide(self.food)
         
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
-        self.screen.blit(self.food.image, self.food.rect)
+        
+        for x in self.food:
+            self.screen.blit(x.image, x.rect)
 
         # display each block in the snake body
         # don't display the first block, because it is just an invisible "leader" 
@@ -216,12 +230,22 @@ class Block(pygame.sprite.Sprite):
         self.dir = direction
 
 class Food(pygame.sprite.Sprite):
-    def __init__(self, gs=None):
+    def __init__(self, x, y, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
         self.image = pygame.image.load('food.png')
         self.rect = self.image.get_rect()
-        self.rect.topleft = [200, 100]
+        self.x = x
+        self.y = y
+        self.display = True
+        self.rect.center = [self.x, self.y]
+    
+    def tick(self, food): # check for being inside snake body - pass in the snake and the enemy
+        for i in range(0,9):
+            if food[i].display is False:
+                food[i].x = randint(1,599)
+                food[i].y = randint(1,599)
+                food[i].display = True
 
 class Snake(pygame.sprite.Sprite):
     def __init__(self, length, xpos, ypos, connection, gs=None):
@@ -237,6 +261,7 @@ class Snake(pygame.sprite.Sprite):
         self.blocks = [] # represents the body of the snake
         self.currdir = 'right' # intial direction
         self.length = length
+        self.alive = True
 
         self.connection = connection
 
@@ -296,6 +321,21 @@ class Snake(pygame.sprite.Sprite):
             
             return 1
         return 0
+
+    def foodcollide(self, food):
+        for i in range(0,(len(food))):
+            if (self.blocks[0].rect.centerx -5) <= food[i].rect.centerx <= (self.blocks[0].rect.centerx + 5):
+                print "here in x check"
+                if (self.blocks[0].rect.centery +5) <= food[i].rect.centery <= (self.blocks[0].rect.centery - 5):
+                    print "here in y check"
+                    food[i].display = False
+                    for x in range(0, (len(food))):
+                        print food[x].display
+        #    print "it didnt find anything"
+
+    #def wallcollide(self):
+        
+
 
     def tick(self):
 
