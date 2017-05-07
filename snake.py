@@ -5,6 +5,7 @@
 import os, sys
 import pygame
 import math
+import time
 from math import sin, pi, cos
 from random import randint
 
@@ -66,19 +67,40 @@ class GameSpace:
         for j in self.foodlog:
             self.food.append(Food(j[0], j[1], self))
 
+        pygame.font.init()
+        myfont = pygame.font.SysFont('monospace', 30)
+        self.textsurface = myfont.render('Game Over', True, (0, 255, 0))
+
+        self.gameover = False
+
+
     def loop(self):
+
         self.clock.tick(60)
         for event in pygame.event.get(): # accounts for the different possible events
             if event.type == pygame.KEYDOWN:
                 self.key = pygame.key.get_pressed()
-                self.snake.changeDirection(self.key, self.player, self.connection)
+                print self.key
+                print self.key[K_q]
+                if self.key[K_LEFT] or self.key[K_RIGHT] or self.key[K_DOWN] or self.key[K_UP]:
+                    print "changing direction"
+                    self.snake.changeDirection(self.key, self.player, self.connection)
+                else:
+                #elif not self.gameover:
+                    print "inside if"
+                    if self.key[K_q]:
+                        self.main(self.connection, self.player)
+                        print "q pressed"
+
             elif event.type == pygame.QUIT: # quit pygame and twisted and exit
-                pygame.quit()
-                reactor.stop()
-                sys.exit()
+
+                #self.sendQuit()
+                self.quit()
+
             
         self.snake.tick()
         self.enemy.tick()
+        
         for y in self.food:
             y.tick(self.food) # passes in list of positions to update if eaten
       
@@ -100,6 +122,9 @@ class GameSpace:
         for x in self.food:
             self.screen.blit(x.image, x.rect)
 
+        if not self.gameover:
+            self.screen.blit(self.textsurface,(self.size/2 - 100, self.size/2 - 100))
+
         # display each block in the snake body
         # don't display the first block, because it is just an invisible "leader" 
         # of the rest of the body
@@ -115,6 +140,8 @@ class GameSpace:
         
         # update the display
         pygame.display.flip()
+
+
         
 
     # handler function that update enemy direction when received from network
@@ -160,6 +187,20 @@ class GameSpace:
                     print ex
                     pass
 
+    def sendQuit(self):
+        print "inside send quit"
+        print self.connection.transport
+        self.connection.transport.write("quit")
+        print "after send quit"
+
+    def quit(self):
+        #print "quitting"
+        pygame.quit()
+        reactor.stop()
+        #sys.exit()
+
+
+
 # Network Classes
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -187,8 +228,11 @@ class ClientConnection(Protocol):
         if data == "right" or data == "left" or data == "up" or data == "down":
             #pass
             self.gs.enemyDirectionHandler(data)
+        elif data == "quit":
+            self.gs.quit()
         else: # we are syncing up positions completely
             self.gs.receivePosition(data)
+
 
 class ClientConnectionFactory(ClientFactory):
     def __init__(self, gs):
@@ -217,6 +261,8 @@ class ServerConnection(Protocol):
         if data == "right" or data == "left" or data == "up" or data == "down":
             #pass
             self.gs.enemyDirectionHandler(data)
+        elif data == "quit":
+            self.gs.quit()
         else:
             self.gs.receivePosition(data)
 
@@ -243,7 +289,7 @@ class Food(pygame.sprite.Sprite):
     def __init__(self, x, y, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
-        self.image = pygame.image.load('food.png')
+        self.image = pygame.image.load('food.png').convert()
         self.rect = self.image.get_rect()
         self.x = x
         self.y = y
@@ -263,9 +309,9 @@ class Snake(pygame.sprite.Sprite):
         self.gs = gs
 
         # load images
-        self.image = pygame.image.load('laser.png')
-        self.head = pygame.image.load('head.png')
-        self.orig = pygame.image.load('laser.png')
+        self.image = pygame.image.load('laser.png').convert()
+        self.head = pygame.image.load('head.png').convert()
+        self.orig = pygame.image.load('laser.png').convert()
 
         self.vel = SNAKE_VEL
         self.blocks = [] # represents the body of the snake
