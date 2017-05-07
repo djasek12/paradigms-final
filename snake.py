@@ -110,12 +110,19 @@ class GameSpace:
       
 #        self.snake.foodcollide(self.food)
 #        self.enemy.foodcollide(self.food)
-       
+
             # bounding for the wall
             self.lose = not(self.snake.wallcollide())
             self.win = not(self.enemy.wallcollide())
-            self.snakecollide = self.snake.snakecollide(self.enemy.blocks[0])
-            self.keepPlaying = not(self.lose or self.win)
+            self.snakecollide = not(self.snake.snakecollide(self.enemy))
+            self.enemycollide = not(self.enemy.snakecollide(self.snake))
+            
+            self.keepPlaying = not(self.lose or self.win or self.snakecollide or self.enemycollide)
+            if not self.keepPlaying:
+                if not self.snakecollide:
+                    self.win = True
+                if not self.enemycollide:
+                    self.lose = True
 
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
@@ -127,10 +134,11 @@ class GameSpace:
         # display end game messages    
         if not self.keepPlaying:
             self.screen.blit(self.textsurface,(self.size/2 - 100, self.size/2 - 100))
-            if self.win:
-                self.screen.blit(self.winMessage,(self.size/2 - 100, self.size/2))
+            
             if self.lose:
                self.screen.blit(self.loseMessage,(self.size/2 - 100, self.size/2))
+            else:
+                self.screen.blit(self.winMessage,(self.size/2 - 100, self.size/2))
 
 
         # display each block in the snake body
@@ -431,8 +439,12 @@ class Snake(pygame.sprite.Sprite):
         return self.alive
 
     def snakecollide(self, rival):
-        if self.blocks.rect.colliderect(rival.rect): # if the rectangles collide, returns true
-            self.alive = False
+        print "inside snakecollide"
+        for b in rival.blocks:
+
+            if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
+                self.alive = False
+                break
         return self.alive
 
     def tick(self):
