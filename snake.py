@@ -10,7 +10,6 @@ from random import randint
 
 from pygame.locals import *
 
-
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.protocol import Factory
 from twisted.internet.protocol import Protocol
@@ -84,11 +83,13 @@ class GameSpace:
       
 #        self.snake.foodcollide(self.food)
 #        self.enemy.foodcollide(self.food)
-       
-        # bounding for the wall
-        self.keepPlaying = self.snake.wallcollide()
-        self.keepPlaying = self.enemy.wallcollide()
 
+        # bounding for the wall
+      #  self.keepPlaying = self.snake.wallcollide()
+       # self.keepPlaying = self.enemy.wallcollide()
+
+        self.keepPlaying = self.snake.snakecollide(self.enemy.blocks[0])
+        
         if self.keepPlaying == False:
             # end the game
             print "the game should exit here"
@@ -361,6 +362,11 @@ class Snake(pygame.sprite.Sprite):
             print "you died on the left of the screen"
             self.alive = False
             print "alive status is now: ", self.alive
+        return self.alive
+
+    def snakecollide(self, rival):
+        if self.blocks.rect.colliderect(rival.rect): # if the rectangles collide, returns true
+            self.alive = False
         return self.alive
 
     def tick(self):
