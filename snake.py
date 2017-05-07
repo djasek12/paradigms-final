@@ -79,42 +79,46 @@ class GameSpace:
         self.clock.tick(60)
         for event in pygame.event.get(): # accounts for the different possible events
             if event.type == pygame.KEYDOWN:
+
                 self.key = pygame.key.get_pressed()
-                print self.key
-                print self.key[K_q]
-                if self.key[K_LEFT] or self.key[K_RIGHT] or self.key[K_DOWN] or self.key[K_UP]:
-                    print "changing direction"
-                    self.snake.changeDirection(self.key, self.player, self.connection)
+
+                if self.key[K_q]:
+                    self.main(self.connection, self.player)
+                    self.connection.transport.write("restart")
+
                 else:
-                #elif not self.gameover:
-                    print "inside if"
-                    if self.key[K_q]:
-                        self.main(self.connection, self.player)
-                        print "q pressed"
+                    self.snake.changeDirection(self.key, self.player, self.connection)
+    
 
             elif event.type == pygame.QUIT: # quit pygame and twisted and exit
 
                 #self.sendQuit()
                 self.quit()
 
-            
-        self.snake.tick()
-        self.enemy.tick()
-        
-        for y in self.food:
-            y.tick(self.food) # passes in list of positions to update if eaten
+
+        if self.keepPlaying == True:
+            self.snake.tick()
+            self.enemy.tick()
+
+            for y in self.food:
+                y.tick(self.food) # passes in list of positions to update if eaten
       
 #        self.snake.foodcollide(self.food)
 #        self.enemy.foodcollide(self.food)
        
-        # bounding for the wall
-        self.keepPlaying = self.snake.wallcollide()
-        self.keepPlaying = self.enemy.wallcollide()
+            # bounding for the wall
+            self.keepPlaying = self.snake.wallcollide() and self.enemy.wallcollide()
+        
+        # if self.keepPlaying == False:
+        #     "print sending game over"
+        #     self.sendGameOver()
 
-        if self.keepPlaying == False:
-            # end the game
-            print "the game should exit here"
-            os._exit() # for now until we make an exit stage
+        # if self.keepPlaying == False:
+        #     # end the game
+        #     print "the game should exit here"
+        #     os._exit() # for now until we make an exit stage
+
+
 
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
@@ -122,7 +126,7 @@ class GameSpace:
         for x in self.food:
             self.screen.blit(x.image, x.rect)
 
-        if not self.gameover:
+        if not self.keepPlaying:
             self.screen.blit(self.textsurface,(self.size/2 - 100, self.size/2 - 100))
 
         # display each block in the snake body
@@ -199,6 +203,8 @@ class GameSpace:
         reactor.stop()
         #sys.exit()
 
+    def sendGameOver(self):
+        self.connection.transport.write("game over")
 
 
 # Network Classes
@@ -214,15 +220,15 @@ class ClientConnection(Protocol):
         self.gs.main(self, 1) #start playing as player 2
 
         # set up and start loop to run the main function
-        mainLoop = LoopingCall(self.gs.loop)
-        mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
+        self.mainLoop = LoopingCall(self.gs.loop)
+        self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
 
         # set up and start loop to run the sync position function
-        syncLoop = LoopingCall(self.gs.sendPosition)
-        syncLoop.start(SYNC_LOOP_DELAY)
+        self.syncLoop = LoopingCall(self.gs.sendPosition)
+        self.syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
-        #print "data: ", data 
+        print "data: #", data, "#"
 
         # check if data is just a direction change
         if data == "right" or data == "left" or data == "up" or data == "down":
@@ -230,6 +236,14 @@ class ClientConnection(Protocol):
             self.gs.enemyDirectionHandler(data)
         elif data == "quit":
             self.gs.quit()
+        elif data == "game over":
+            print "received game over signal"
+            self.gs.keepPlaying == False
+        elif data == "restart":
+            self.mainLoop.stop()
+            self.gs.keepPlaying = True
+            self.gs.main(self, 1)
+            self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else: # we are syncing up positions completely
             self.gs.receivePosition(data)
 
@@ -250,11 +264,11 @@ class ServerConnection(Protocol):
         print "service connection made on server side"
         self.gs.main(self, 0) # start playing as player one
 
-        mainLoop = LoopingCall(self.gs.loop)
-        mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
+        self.mainLoop = LoopingCall(self.gs.loop)
+        self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
 
-        syncLoop = LoopingCall(self.gs.sendPosition)
-        syncLoop.start(SYNC_LOOP_DELAY)
+        self.syncLoop = LoopingCall(self.gs.sendPosition)
+        self.syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
         #print "data: ", data 
@@ -263,6 +277,11 @@ class ServerConnection(Protocol):
             self.gs.enemyDirectionHandler(data)
         elif data == "quit":
             self.gs.quit()
+        elif data == "restart":
+            self.mainLoop.stop()
+            self.gs.keepPlaying = True
+            self.gs.main(self, 0)
+            self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else:
             self.gs.receivePosition(data)
 
