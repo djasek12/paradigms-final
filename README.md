@@ -5,13 +5,15 @@
 Jessica
 - collision detection (with food) /growth
 - (possible collision detection with self)
-- boundaries
-- collision detection with another snake
 
 - boosting (spacebar/mouse)
 
 - food generation
     - once a certain amount is eaten, regenerate randomly
+
+- win conditions
+	- other player runs into wall or other snake
+- if one player closes a window, make the other player's window close
 
 Danny
 - networking

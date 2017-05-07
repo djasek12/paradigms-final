@@ -77,6 +77,8 @@ class GameSpace:
         self.win = False
         self.lose = False
 
+        self.snakecollide = False
+
 
     def loop(self):
 
@@ -112,8 +114,8 @@ class GameSpace:
             # bounding for the wall
             self.lose = not(self.snake.wallcollide())
             self.win = not(self.enemy.wallcollide())
+            self.snakecollide = self.snake.snakecollide(self.enemy.blocks[0])
             self.keepPlaying = not(self.lose or self.win)
-    
 
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
@@ -426,6 +428,11 @@ class Snake(pygame.sprite.Sprite):
             print "you died on the left of the screen"
             self.alive = False
             print "alive status is now: ", self.alive
+        return self.alive
+
+    def snakecollide(self, rival):
+        if self.blocks.rect.colliderect(rival.rect): # if the rectangles collide, returns true
+            self.alive = False
         return self.alive
 
     def tick(self):
