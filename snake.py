@@ -72,6 +72,8 @@ class GameSpace:
         self.textsurface = font.render('Game Over', True, (0, 255, 0))
         self.winMessage = font.render('You Won!', True, (0, 255, 0))
         self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
+        self.playAgainMessage = font.render('Press "r" to play again', True, (0, 255, 0))
+
 
         self.gameover = False
         self.win = False
@@ -111,18 +113,13 @@ class GameSpace:
 #        self.snake.foodcollide(self.food)
 #        self.enemy.foodcollide(self.food)
 
-            # bounding for the wall
-            self.lose = not(self.snake.wallcollide())
-            self.win = not(self.enemy.wallcollide())
-            self.snakecollide = not(self.snake.snakecollide(self.enemy))
-            self.enemycollide = not(self.enemy.snakecollide(self.snake))
+            # we lose if we hit the wall or we collide with the enemy
+            self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
+
+            # we win if the enemy hits a wall or collides with us
+            self.win = self.enemy.wallcollide() or self.enemy.snakecollide(self.snake)
             
-            self.keepPlaying = not(self.lose or self.win or self.snakecollide or self.enemycollide)
-            if not self.keepPlaying:
-                if not self.snakecollide:
-                    self.win = True
-                if not self.enemycollide:
-                    self.lose = True
+            self.keepPlaying = not(self.lose or self.win)
 
         # blits sprites to screen
         self.screen.fill((0, 0, 0)) # fills the background with black
@@ -133,7 +130,9 @@ class GameSpace:
 
         # display end game messages    
         if not self.keepPlaying:
-            self.screen.blit(self.textsurface,(self.size/2 - 100, self.size/2 - 100))
+            self.screen.blit(self.textsurface, (self.size/2 - 100, self.size/2 - 100))
+            self.screen.blit(self.playAgainMessage, (self.size/2 - 250, self.size/2 + 100))
+
             
             if self.lose:
                self.screen.blit(self.loseMessage,(self.size/2 - 100, self.size/2))
@@ -419,7 +418,6 @@ class Snake(pygame.sprite.Sprite):
         #    print "it didnt find anything"
 
     def wallcollide(self): 
-        # OS exit calls are temporary freezes until we have the exit display working
         if self.blocks[1].rect.topleft[1] == 0:
             print "you died on the top of the screen"
             self.alive = False
@@ -436,16 +434,15 @@ class Snake(pygame.sprite.Sprite):
             print "you died on the left of the screen"
             self.alive = False
             print "alive status is now: ", self.alive
-        return self.alive
+        return not self.alive
 
+    # returns True if our head has collided with our rival, False otherwise
     def snakecollide(self, rival):
-        print "inside snakecollide"
-        for b in rival.blocks:
-
+        for b in rival.blocks: # check if our head collides with each of the other snake's blocks
             if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
                 self.alive = False
-                break
-        return self.alive
+                return True
+        return False
 
     def tick(self):
 
