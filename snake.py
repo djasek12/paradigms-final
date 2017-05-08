@@ -110,10 +110,10 @@ class GameSpace:
             self.enemy.foodcollide(self.food)
 
             # we lose if we hit the wall or we collide with the enemy
-            self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
+            #self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
 
             # we win if the enemy hits a wall or collides with us
-            self.win = self.enemy.wallcollide() or self.enemy.snakecollide(self.snake)
+            #self.win = self.enemy.wallcollide() or self.enemy.snakecollide(self.snake)
             
             self.keepPlaying = not(self.lose or self.win)
 
@@ -399,12 +399,12 @@ class Snake(pygame.sprite.Sprite):
 
         if self.blocks[bodyLen].dir == 'up':
             rect = self.blocks[-1].rect
-            rect = rect.move(0, -10)
+            rect = rect.move(0, 10)
             self.blocks.append(Block(self.image, rect, 'up'))
 
         if self.blocks[bodyLen].dir == 'down':
             rect = self.blocks[-1].rect
-            rect = rect.move(0, 10)
+            rect = rect.move(0, -10)
             self.blocks.append(Block(self.image, rect, 'down'))
 
     def foodcollide(self, food):
