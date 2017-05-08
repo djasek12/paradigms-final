@@ -19,7 +19,7 @@ from twisted.internet.task import LoopingCall
 
 MAIN_LOOP_DELAY = .016
 SYNC_LOOP_DELAY = 2
-SNAKE_LENGTH = 30
+SNAKE_LENGTH = 3
 SNAKE_VEL = 1
 
 class GameSpace:
@@ -121,7 +121,8 @@ class GameSpace:
         self.screen.fill((0, 0, 0)) # fills the background with black
         
         for x in self.food:
-            self.screen.blit(x.image, x.rect)
+            if x.display:
+                self.screen.blit(x.image, x.rect)
 
         # display end game messages    
         if not self.keepPlaying:
@@ -404,9 +405,11 @@ class Snake(pygame.sprite.Sprite):
 
 
     def foodcollide(self, food):
+        
         # if the snake collides with the food
         # set the value of the food display to false
         # call the increase len function on the snake
+        
         for b in food: # check if our head collides with each of the other snake's blocks
             if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
                 b.display = False
