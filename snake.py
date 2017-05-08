@@ -310,12 +310,13 @@ class Food(pygame.sprite.Sprite):
         self.display = True
         self.rect.center = [self.x, self.y]
     
+    def randMove(self):
+        self.x = randint(1,599)
+        self.y = randint(1,599)
+        self.rect.center = [self.x, self.y]
+    
     def tick(self, food): # check for being inside snake body - pass in the snake and the enemy
-        for i in range(0,9):
-            if food[i].display is False:
-                food[i].x = randint(1,599)
-                food[i].y = randint(1,599)
-                food[i].display = True
+        pass
 
 class Snake(pygame.sprite.Sprite):
     def __init__(self, length, xpos, ypos, connection, gs=None):
@@ -392,18 +393,6 @@ class Snake(pygame.sprite.Sprite):
             return 1
         return 0
 
-    #def foodcollide(self, food):
-     #   for i in range(0,(len(food))):
-      #      if (self.blocks[0].rect.centerx -5) <= food[i].rect.centerx <= (self.blocks[0].rect.centerx + 5):
-       #         print "here in x check"
-        #        if (self.blocks[0].rect.centery +5) <= food[i].rect.centery <= (self.blocks[0].rect.centery - 5):
-         #           print "here in y check"
-          #          food[i].display = False
-           #         for x in range(0, (len(food))):
-            #            print food[x].display
-        #    print "it didnt find anything"
-
-
     def foodcollide(self, food):
         
         # if the snake collides with the food
@@ -412,7 +401,7 @@ class Snake(pygame.sprite.Sprite):
         
         for b in food: # check if our head collides with each of the other snake's blocks
             if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
-                b.display = False
+                b.randMove()
                 self.increaselen()
 
     def wallcollide(self): 
