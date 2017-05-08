@@ -74,13 +74,10 @@ class GameSpace:
         self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
         self.playAgainMessage = font.render('Press "r" to play again', True, (0, 255, 0))
 
-
         self.gameover = False
         self.win = False
         self.lose = False
-
         self.snakecollide = False
-
 
     def loop(self):
 
@@ -102,7 +99,6 @@ class GameSpace:
                 #self.sendQuit()
                 self.quit()
 
-
         if self.keepPlaying == True:
             self.snake.tick()
             self.enemy.tick()
@@ -110,8 +106,8 @@ class GameSpace:
             for y in self.food:
                 y.tick(self.food) # passes in list of positions to update if eaten
       
-#        self.snake.foodcollide(self.food)
-#        self.enemy.foodcollide(self.food)
+            self.snake.foodcollide(self.food)
+    #        self.enemy.foodcollide(self.food)
 
             # we lose if we hit the wall or we collide with the enemy
             self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
@@ -127,18 +123,15 @@ class GameSpace:
         for x in self.food:
             self.screen.blit(x.image, x.rect)
 
-
         # display end game messages    
         if not self.keepPlaying:
             self.screen.blit(self.textsurface, (self.size/2 - 100, self.size/2 - 100))
             self.screen.blit(self.playAgainMessage, (self.size/2 - 250, self.size/2 + 100))
 
-            
             if self.lose:
                self.screen.blit(self.loseMessage,(self.size/2 - 100, self.size/2))
             else:
                 self.screen.blit(self.winMessage,(self.size/2 - 100, self.size/2))
-
 
         # display each block in the snake body
         # don't display the first block, because it is just an invisible "leader" 
@@ -155,9 +148,6 @@ class GameSpace:
         
         # update the display
         pygame.display.flip()
-
-
-        
 
     # handler function that update enemy direction when received from network
     def enemyDirectionHandler(self, direction):
@@ -209,12 +199,8 @@ class GameSpace:
         print "after send quit"
 
     def quit(self):
-        #print "quitting"
         pygame.quit()
         reactor.stop()
-        #sys.exit()
-
-
 
 # Network Classes
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -255,7 +241,6 @@ class ClientConnection(Protocol):
             #self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else: # we are syncing up positions completely
             self.gs.receivePosition(data)
-
 
 class ClientConnectionFactory(ClientFactory):
     def __init__(self, gs):
@@ -406,16 +391,26 @@ class Snake(pygame.sprite.Sprite):
             return 1
         return 0
 
-    def foodcollide(self, food):
-        for i in range(0,(len(food))):
-            if (self.blocks[0].rect.centerx -5) <= food[i].rect.centerx <= (self.blocks[0].rect.centerx + 5):
-                print "here in x check"
-                if (self.blocks[0].rect.centery +5) <= food[i].rect.centery <= (self.blocks[0].rect.centery - 5):
-                    print "here in y check"
-                    food[i].display = False
-                    for x in range(0, (len(food))):
-                        print food[x].display
+    #def foodcollide(self, food):
+     #   for i in range(0,(len(food))):
+      #      if (self.blocks[0].rect.centerx -5) <= food[i].rect.centerx <= (self.blocks[0].rect.centerx + 5):
+       #         print "here in x check"
+        #        if (self.blocks[0].rect.centery +5) <= food[i].rect.centery <= (self.blocks[0].rect.centery - 5):
+         #           print "here in y check"
+          #          food[i].display = False
+           #         for x in range(0, (len(food))):
+            #            print food[x].display
         #    print "it didnt find anything"
+
+
+    def foodcollide(self, food):
+        # if the snake collides with the food
+        # set the value of the food display to false
+        # call the increase len function on the snake
+        for b in food: # check if our head collides with each of the other snake's blocks
+            if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
+                b.display = False
+                self.increaselen()
 
     def wallcollide(self): 
         if self.blocks[1].rect.topleft[1] == 0:
