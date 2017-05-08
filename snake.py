@@ -107,7 +107,7 @@ class GameSpace:
                 y.tick(self.food) # passes in list of positions to update if eaten
       
             self.snake.foodcollide(self.food)
-    #        self.enemy.foodcollide(self.food)
+            self.enemy.foodcollide(self.food)
 
             # we lose if we hit the wall or we collide with the enemy
             self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
@@ -381,17 +381,31 @@ class Snake(pygame.sprite.Sprite):
                 connection.transport.write("up")
         
     def increaselen(self):
-        if self.blocks[0].rect.topleft == (200, 100): 
-            
-            # make a copy of the last block rect, and move it 10 units left
+        # pass in direction
+        # make conditional depending on direction
+        # depending on what the direction is, move accordingly
+
+        bodyLen = (len(self.blocks))-1
+
+        if self.blocks[bodyLen].dir == 'right':
             rect = self.blocks[-1].rect
             rect = rect.move(-10, 0)
-
-            # add block to array
             self.blocks.append(Block(self.image, rect, 'right'))
-            
-            return 1
-        return 0
+
+        if self.blocks[bodyLen].dir == 'left':
+            rect = self.blocks[-1].rect
+            rect = rect.move(10, 0)
+            self.blocks.append(Block(self.image, rect, 'left'))
+
+        if self.blocks[bodyLen].dir == 'up':
+            rect = self.blocks[-1].rect
+            rect = rect.move(0, -10)
+            self.blocks.append(Block(self.image, rect, 'up'))
+
+        if self.blocks[bodyLen].dir == 'down':
+            rect = self.blocks[-1].rect
+            rect = rect.move(0, 10)
+            self.blocks.append(Block(self.image, rect, 'down'))
 
     def foodcollide(self, food):
         
@@ -460,7 +474,6 @@ class Snake(pygame.sprite.Sprite):
                 b.rect = b.rect.move(0, -self.vel)
             elif b.dir == "down":
                 b.rect = b.rect.move(0, self.vel)
-
 
 if __name__ == '__main__':
     gs = GameSpace()
