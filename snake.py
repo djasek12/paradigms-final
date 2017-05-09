@@ -1,6 +1,7 @@
 # Jessica Cioffi
 # Daniel Jasek
 # Programming Paradigms Final
+# Snake Implentation
 
 import os, sys
 import pygame
