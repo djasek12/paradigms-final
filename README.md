@@ -22,3 +22,26 @@ Danny
     - each food regeneration - send location of new food - take away old food - a big list with booleans for show/not show
     - syncing up:
         - send (size), exact position of each block
+
+
+Written Tutorial for Snake
+--------------------------
+
+Player 1 Information
+- player one is the green snake with the pink head
+- player one is controlled by the arrow keys
+
+Player 2 Information
+- player two is the yellow snake with the blue head
+- player two is controlled by WASD
+
+Starting the Game Connection
+-
+-
+
+General Game Play
+
+- food displays as orange squares on the game screen
+- move your snake around the screen to collect food to grow in length
+- colliding with the walls or the other player results in death, and the game ends
+- on the client side, hitting r once the game is over will restart the game
