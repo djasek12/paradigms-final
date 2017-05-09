@@ -82,8 +82,7 @@ class GameSpace:
 
                 self.sendFoodPosition()
             else:
-                pass
-                self.receiveFoodPosition()
+                self.food = {} # init empty food dict
 
             # init game over messages
             pygame.font.init()
@@ -93,6 +92,7 @@ class GameSpace:
             self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
             self.playAgainMessage = font.render('Press "r" to play again', True, (0, 255, 0))
 
+            # set initial gamestate vars
             self.gameover = False
             self.win = False
             self.lose = False
@@ -103,7 +103,7 @@ class GameSpace:
 
     def loop(self):
 
-        self.clock.tick(60)
+        #self.clock.tick(60)
         for event in pygame.event.get(): # accounts for the different possible events
             if event.type == pygame.KEYDOWN:
 
@@ -118,15 +118,11 @@ class GameSpace:
                     self.snake.changeDirection(self.key, self.player, self.connection)
 
             elif event.type == pygame.QUIT: # quit pygame and twisted and exit
-                #self.sendQuit()
                 self.quit()
 
         if self.keepPlaying == True:
             self.snake.tick()
             self.enemy.tick()
-
-            # for y in self.food:
-            #     y.tick(self.food) # passes in list of positions to update if eaten
       
             self.snake.foodcollide(self.food)
             #self.enemy.foodcollide(self.food)
@@ -143,8 +139,6 @@ class GameSpace:
         self.screen.fill((0, 0, 0)) # fills the background with black
         
         for x in self.food:
-            # if x.display:
-            #     self.screen.blit(x.image, x.rect)
             if self.food[x].display:
                 self.screen.blit(self.food[x].image, self.food[x].rect)
 
@@ -193,7 +187,7 @@ class GameSpace:
             data = str(i) + ":" + str(b.rect.topleft[0]) + ":" + str(b.rect.topleft[1]) + ":" + b.dir + "\n"
             self.connection.transport.write(data)
 
-    # handler function for receiving full position data
+    # handler function for receiving full position data - for food as well as snake body block positions
     def receivePosition(self, data):
         data = data.split("\n")
         for d in data: 
@@ -201,21 +195,17 @@ class GameSpace:
             if len(d) > 1: # not a random empty whitespace line
                 d = d.strip()
                 d = d.split(":")
-                #print "--d:", d, "--"
-
-                print d
 
                 if d[0] == "increase length":
-                    print "increase length"
                     self.enemy.increaselen()
 
+                # based on the type of the message, we are updating block position
                 if len(d) == 4 and d[0] != "food":
 
                     # attempt to parse positional and directional data out of line
                     # sometimes the line is malformed, so we need to try/except these cases
                     # and just update the block later
                     try:
-                        print "updating position"
                         index = int(d[0])
                         xpos = int(d[1])
                         ypos = int(d[2])
@@ -226,44 +216,26 @@ class GameSpace:
                         print ex
                         pass
 
-                else:
+                else: # update food position
                     try:
-                        print "updating food position"
-
-                        #self.food.append(Food(int(d[0]), int(d[1]), self))
                         index = int(d[1])
                         self.food[index] = Food(int(d[2]), int(d[3]), self)
-                        pass
 
                     except Exception as ex:
                         print ex
-                        pass
 
-
-    def sendQuit(self):
-        print "inside send quit"
-        print self.connection.transport
-        self.connection.transport.write("quit")
-        print "after send quit"
 
     def quit(self):
         pygame.quit()
         reactor.stop()
 
+    # send food position indexed by a counter to the other player
     def sendFoodPosition(self):
         self.connection.transport.write("food data\n")
-        print self.food
         for f in self.food:
             #might need to send in order
-            # self.connection.transport.write(str(f.rect.topleft[0]) + ":" + str(f.rect.topleft[1]) + "\n")
             data = "food:" + str(f) + ":" + str(self.food[f].rect.topleft[0]) + ":" + str(self.food[f].rect.topleft[1]) + "\n"
-            print "sending data: " + data
             self.connection.transport.write(data)
-
-
-    def receiveFoodPosition(self):
-        self.food = {}
-        pass
 
 # Network Classes
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -274,7 +246,6 @@ class ClientConnection(Protocol):
         self.gs = gs
     
     def connectionMade(self):
-        print "service connection made on client side"
         self.gs.main(self, 1) #start playing as player 2
 
         # set up and start loop to run the main function
@@ -286,23 +257,19 @@ class ClientConnection(Protocol):
         self.syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
-        print "data: #", data, "#"
+        #print "data: #", data, "#"
 
         # check if data is just a direction change
         if data == "right" or data == "left" or data == "up" or data == "down":
-            #pass
             self.gs.enemyDirectionHandler(data)
         elif data == "quit":
             self.gs.quit()
         elif data == "game over":
-            print "received game over signal"
             self.gs.keepPlaying == False
         elif data == "restart":
-            #self.mainLoop.stop()
             self.gs.keepPlaying = True
-            self.gs.main(self, 1)
-        else:# we are syncing up positions completely
-            #print "#" + data.split("\n")[0] + "#"
+            self.gs.main(self, 1) # reset game by running main function again
+        else:# we are syncing up positions completely or receiving food position
             self.gs.receivePosition(data)
 
 class ClientConnectionFactory(ClientFactory):
@@ -335,10 +302,8 @@ class ServerConnection(Protocol):
         elif data == "quit":
             self.gs.quit()
         elif data == "restart":
-            #self.mainLoop.stop()
             self.gs.keepPlaying = True
             self.gs.main(self, 0)
-            #self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
         else:
             self.gs.receivePosition(data)
 
@@ -372,6 +337,7 @@ class Food(pygame.sprite.Sprite):
         self.display = True
         self.rect.center = [self.x, self.y]
     
+    # generate a new random food position
     def randMove(self):
         self.x = randint(1,599)
         self.y = randint(1,599)
@@ -481,32 +447,31 @@ class Snake(pygame.sprite.Sprite):
             if self.blocks[1].rect.colliderect(food[b].rect): # if the rectangles collide, returns true
                 if self.player == 0:
                     food[b].randMove()
-                    print "about to send data"
+
+                    # let the other player know we just ate some food and got bigger, as well as the position of the new food
                     data = "food:" + str(b) + ":" + str(food[b].rect.topleft[0]) + ":" + str(food[b].rect.topleft[1]) + "\n"
-                    print "sending data: " + data
                     self.connection.transport.write(data)
                     self.connection.transport.write("increase length")
                     self.increaselen()
 
-                #self.increaselen()
-
+    # checks for wall collisions
     def wallcollide(self): 
         if self.blocks[1].rect.topleft[1] == 0:
-            print "you died on the top of the screen"
+            # print "you died on the top of the screen"
             self.alive = False
-            print "alive status is now: ", self.alive
+            #print "alive status is now: ", self.alive
         if self.blocks[1].rect.bottomleft[1] == 600:
-            print "you died on the bottom of the screen"
+            # print "you died on the bottom of the screen"
             self.alive = False
-            print "alive status is now: ", self.alive
+            #print "alive status is now: ", self.alive
         if self.blocks[1].rect.bottomright[0] == 600:
-            print "you died on the right of the screen"
+            # print "you died on the right of the screen"
             self.alive = False
-            print "alive status is now: ", self.alive
+            #print "alive status is now: ", self.alive
         if self.blocks[1].rect.topleft[0] == 0:
-            print "you died on the left of the screen"
+            # print "you died on the left of the screen"
             self.alive = False
-            print "alive status is now: ", self.alive
+            #print "alive status is now: ", self.alive
         return not self.alive
 
     # returns True if our head has collided with our rival, False otherwise
@@ -554,6 +519,7 @@ if __name__ == '__main__':
         print "usage: python snake.py <master | client>"
         sys.exit(1)
 
+    # if a host is specified by player 2, set it
     if len(sys.argv) > 2:
         HOST = sys.argv[2]
 
