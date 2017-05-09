@@ -556,7 +556,7 @@ if __name__ == '__main__':
         print "listening..."
         reactor.listenTCP(41064, ServerConnectionFactory(gs))
     else:
-        reactor.connectTCP("localhost", 41064, ClientConnectionFactory(gs))
+        reactor.connectTCP(HOST, 41064, ClientConnectionFactory(gs))
 
     # start event loop
     try:
