@@ -21,6 +21,10 @@ MAIN_LOOP_DELAY = .016
 SYNC_LOOP_DELAY = 2
 SNAKE_LENGTH = 3
 SNAKE_VEL = 1
+BODY1 = "green.png"
+BODY2 = "yellow.png"
+HEAD1 = "pink.png"
+HEAD2 = "blue.png"
 
 HOST = "localhost"
 
@@ -52,11 +56,11 @@ class GameSpace:
             
             # intialize game objects
             if self.player == 0:
-                self.snake = Snake(SNAKE_LENGTH, 100, 100, connection, 0, self)
-                self.enemy = Snake(SNAKE_LENGTH, 100, 200, 1, self)
+                self.snake = Snake(SNAKE_LENGTH, BODY1, HEAD1, 100, 100, connection, 0, self)
+                self.enemy = Snake(SNAKE_LENGTH, BODY2, HEAD2, 100, 200, 1, self)
             else:
-                self.snake = Snake(SNAKE_LENGTH, 100, 200, connection, 0, self)
-                self.enemy = Snake(SNAKE_LENGTH, 100, 100, 1, self)
+                self.snake = Snake(SNAKE_LENGTH, BODY2, HEAD2, 100, 200, connection, 0, self)
+                self.enemy = Snake(SNAKE_LENGTH, BODY1, HEAD1, 100, 100, 1, self)
 
             if self.player == 0:
                 # initializing food
@@ -376,14 +380,15 @@ class Food(pygame.sprite.Sprite):
         pass
 
 class Snake(pygame.sprite.Sprite):
-    def __init__(self, length, xpos, ypos, connection, player, gs=None):
+    def __init__(self, length, bodyIm, headIm, xpos, ypos, connection, player, gs=None):
+
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
 
         # load images
-        self.image = pygame.image.load('laser.png').convert()
-        self.head = pygame.image.load('head.png').convert()
-        self.orig = pygame.image.load('laser.png').convert()
+        self.image = pygame.image.load(bodyIm).convert()
+        self.head = pygame.image.load(headIm).convert()
+        self.orig = pygame.image.load(bodyIm).convert()
 
         self.vel = SNAKE_VEL
         self.blocks = [] # represents the body of the snake
@@ -401,7 +406,7 @@ class Snake(pygame.sprite.Sprite):
         for i in range(0,self.length + 1):
             rect = self.image.get_rect()
             rect.topleft = [xpos, ypos]
-            rect = rect.move((i*-10), 0) # translate the block to the left
+            rect = rect.move((i*-15), 0) # translate the block to the left
             if i == 1: # the "head"
                 self.blocks.append(Block(self.head, rect, 'right'))
             else:
@@ -447,22 +452,22 @@ class Snake(pygame.sprite.Sprite):
 
         if self.blocks[bodyLen].dir == 'right':
             rect = self.blocks[-1].rect
-            rect = rect.move(-10, 0)
+            rect = rect.move(-15, 0)
             self.blocks.append(Block(self.image, rect, 'right'))
 
         if self.blocks[bodyLen].dir == 'left':
             rect = self.blocks[-1].rect
-            rect = rect.move(10, 0)
+            rect = rect.move(15, 0)
             self.blocks.append(Block(self.image, rect, 'left'))
 
         if self.blocks[bodyLen].dir == 'up':
             rect = self.blocks[-1].rect
-            rect = rect.move(0, 10)
+            rect = rect.move(0, 15)
             self.blocks.append(Block(self.image, rect, 'up'))
 
         if self.blocks[bodyLen].dir == 'down':
             rect = self.blocks[-1].rect
-            rect = rect.move(0, -10)
+            rect = rect.move(0, -15)
             self.blocks.append(Block(self.image, rect, 'down'))
 
     def foodcollide(self, food):
@@ -521,12 +526,12 @@ class Snake(pygame.sprite.Sprite):
             # if the next block is moving up or down, wait until until our x position
             # is evenly divisible by the block size (10), and then change direction
             if self.blocks[i-1].dir == "up" or self.blocks[i-1].dir == "down":
-                if self.blocks[i].rect.topleft[0] % 10 == 0:
+                if self.blocks[i].rect.topleft[0] % 15 == 0:
                     self.blocks[i].dir = self.blocks[i-1].dir
             # if the next block is moving left or right, wait until until our y position
             # is evenly divisible by the block size, and then change direction
             else:
-                if self.blocks[i].rect.topleft[1] % 10 == 0:
+                if self.blocks[i].rect.topleft[1] % 15 == 0:
                     self.blocks[i].dir = self.blocks[i-1].dir
             i -= 1
 
