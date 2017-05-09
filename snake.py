@@ -22,6 +22,8 @@ SYNC_LOOP_DELAY = 2
 SNAKE_LENGTH = 3
 SNAKE_VEL = 1
 
+HOST = "localhost"
+
 class GameSpace:
     def main(self, connection, player):
 
@@ -122,13 +124,13 @@ class GameSpace:
             #     y.tick(self.food) # passes in list of positions to update if eaten
       
             self.snake.foodcollide(self.food)
-            self.enemy.foodcollide(self.food)
+            #self.enemy.foodcollide(self.food)
 
             # we lose if we hit the wall or we collide with the enemy
-            #self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
+            self.lose = self.snake.wallcollide() or self.snake.snakecollide(self.enemy)
 
             # we win if the enemy hits a wall or collides with us
-            #self.win = self.enemy.wallcollide() or self.enemy.snakecollide(self.snake)
+            self.win = self.enemy.wallcollide() or self.enemy.snakecollide(self.snake)
             
             self.keepPlaying = not(self.lose or self.win)
 
@@ -196,8 +198,12 @@ class GameSpace:
                 d = d.split(":")
                 #print "--d:", d, "--"
 
-
                 print d
+
+                if d[0] == "increase length":
+                    print "increase length"
+                    self.enemy.increaselen()
+
                 if len(d) == 4 and d[0] != "food":
 
                     # attempt to parse positional and directional data out of line
@@ -473,7 +479,10 @@ class Snake(pygame.sprite.Sprite):
                     data = "food:" + str(b) + ":" + str(food[b].rect.topleft[0]) + ":" + str(food[b].rect.topleft[1]) + "\n"
                     print "sending data: " + data
                     self.connection.transport.write(data)
-                self.increaselen()
+                    self.connection.transport.write("increase length")
+                    self.increaselen()
+
+                #self.increaselen()
 
     def wallcollide(self): 
         if self.blocks[1].rect.topleft[1] == 0:
@@ -538,6 +547,9 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print "usage: python snake.py <master | client>"
         sys.exit(1)
+
+    if len(sys.argv) > 2:
+        HOST = sys.argv[2]
 
     # init network stuff
     if sys.argv[1] == "master":
