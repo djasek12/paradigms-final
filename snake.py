@@ -25,59 +25,74 @@ SNAKE_VEL = 1
 class GameSpace:
     def main(self, connection, player):
 
-        self.connection = connection
-        self.player = player
+        try:
 
-        # init window
-        pygame.init()
-        self.keepPlaying = True
-        self.size = 600
-        self.screen = pygame.display.set_mode((self.size,self.size)) # sets the window size
-        pygame.mouse.set_visible(1) # makes the mouse visible
+            self.connection = connection
+            self.player = player
 
-        if self.player == 0:
-            pygame.display.set_caption('Player 1')
-        else:
-            pygame.display.set_caption('Player 2')
+            # init window
+            pygame.init()
+            self.keepPlaying = True
+            self.size = 600
+            self.screen = pygame.display.set_mode((self.size,self.size)) # sets the window size
+            pygame.mouse.set_visible(1) # makes the mouse visible
 
-        self.clock = pygame.time.Clock() # initializes the clock
+            if self.player == 0:
+                pygame.display.set_caption('Player 1')
+            else:
+                pygame.display.set_caption('Player 2')
 
-        # set up game variables
-        self.done = False # sets the loop determinant
-        self.keys = pygame.key.set_repeat(1,50) # helps with lag
-        
-        # intialize game objects
-        if self.player == 0:
-            self.snake = Snake(SNAKE_LENGTH, 100, 100, connection, self)
-            self.enemy = Snake(SNAKE_LENGTH, 100, 200, self)
-        else:
-            self.snake = Snake(SNAKE_LENGTH, 100, 200, connection, self)
-            self.enemy = Snake(SNAKE_LENGTH, 100, 100, self)
+            self.clock = pygame.time.Clock() # initializes the clock
 
-        # initializing food
-        self.food = [] # list to store food objects
-        self.foodlog = [] # list to store food positions on board
-        for i in range(0,9): # for number of food objects on board at one time
-            x = randint(1,599)
-            y = randint(1,599)
-            self.foodlog.append((x,y))
+            # set up game variables
+            self.done = False # sets the loop determinant
+            self.keys = pygame.key.set_repeat(1,50) # helps with lag
+            
+            # intialize game objects
+            if self.player == 0:
+                self.snake = Snake(SNAKE_LENGTH, 100, 100, connection, 0, self)
+                self.enemy = Snake(SNAKE_LENGTH, 100, 200, 1, self)
+            else:
+                self.snake = Snake(SNAKE_LENGTH, 100, 200, connection, 0, self)
+                self.enemy = Snake(SNAKE_LENGTH, 100, 100, 1, self)
 
-        # add food objects to list
-        for j in self.foodlog:
-            self.food.append(Food(j[0], j[1], self))
+            if self.player == 0:
+                # initializing food
+                #self.food = [] # list to store food objects
+                self.food = {}
+                self.foodlog = [] # list to store food positions on board
+                for i in range(0,9): # for number of food objects on board at one time
+                    x = randint(1,599)
+                    y = randint(1,599)
+                    self.foodlog.append((x,y))
 
-        # init game over messages
-        pygame.font.init()
-        font = pygame.font.SysFont('monospace', 30)
-        self.textsurface = font.render('Game Over', True, (0, 255, 0))
-        self.winMessage = font.render('You Won!', True, (0, 255, 0))
-        self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
-        self.playAgainMessage = font.render('Press "r" to play again', True, (0, 255, 0))
+                # add food objects to list
+                i = 0
+                for j in self.foodlog:
+                    self.food[i] = Food(j[0], j[1], self)
+                    i += 1
+                    #self.food.append(Food(j[0], j[1], self))
 
-        self.gameover = False
-        self.win = False
-        self.lose = False
-        self.snakecollide = False
+                self.sendFoodPosition()
+            else:
+                pass
+                self.receiveFoodPosition()
+
+            # init game over messages
+            pygame.font.init()
+            font = pygame.font.SysFont('monospace', 30)
+            self.textsurface = font.render('Game Over', True, (0, 255, 0))
+            self.winMessage = font.render('You Won!', True, (0, 255, 0))
+            self.loseMessage = font.render('You Lost!', True, (0, 255, 0))
+            self.playAgainMessage = font.render('Press "r" to play again', True, (0, 255, 0))
+
+            self.gameover = False
+            self.win = False
+            self.lose = False
+            self.snakecollide = False
+
+        except Exception as ex:
+            print ex
 
     def loop(self):
 
@@ -103,8 +118,8 @@ class GameSpace:
             self.snake.tick()
             self.enemy.tick()
 
-            for y in self.food:
-                y.tick(self.food) # passes in list of positions to update if eaten
+            # for y in self.food:
+            #     y.tick(self.food) # passes in list of positions to update if eaten
       
             self.snake.foodcollide(self.food)
             self.enemy.foodcollide(self.food)
@@ -121,8 +136,10 @@ class GameSpace:
         self.screen.fill((0, 0, 0)) # fills the background with black
         
         for x in self.food:
-            if x.display:
-                self.screen.blit(x.image, x.rect)
+            # if x.display:
+            #     self.screen.blit(x.image, x.rect)
+            if self.food[x].display:
+                self.screen.blit(self.food[x].image, self.food[x].rect)
 
         # display end game messages    
         if not self.keepPlaying:
@@ -179,19 +196,38 @@ class GameSpace:
                 d = d.split(":")
                 #print "--d:", d, "--"
 
-                # attempt to parse positional and directional data out of line
-                # sometimes the line is malformed, so we need to try/except these cases
-                # and just update the block later
-                try:
-                    index = int(d[0])
-                    xpos = int(d[1])
-                    ypos = int(d[2])
-                    self.enemy.blocks[index].rect.topleft = (xpos, ypos) #update the enemy position at the proper index
-                    if d[3] == "right" or d[3] == "left" or d[3] == "up" or d[3] == "down":
-                        self.enemy.blocks[index].dir = d[3]
-                except Exception as ex:
-                    print ex
-                    pass
+
+                print d
+                if len(d) == 4 and d[0] != "food":
+
+                    # attempt to parse positional and directional data out of line
+                    # sometimes the line is malformed, so we need to try/except these cases
+                    # and just update the block later
+                    try:
+                        print "updating position"
+                        index = int(d[0])
+                        xpos = int(d[1])
+                        ypos = int(d[2])
+                        self.enemy.blocks[index].rect.topleft = (xpos, ypos) #update the enemy position at the proper index
+                        if d[3] == "right" or d[3] == "left" or d[3] == "up" or d[3] == "down":
+                            self.enemy.blocks[index].dir = d[3]
+                    except Exception as ex:
+                        print ex
+                        pass
+
+                else:
+                    try:
+                        print "updating food position"
+
+                        #self.food.append(Food(int(d[0]), int(d[1]), self))
+                        index = int(d[1])
+                        self.food[index] = Food(int(d[2]), int(d[3]), self)
+                        pass
+
+                    except Exception as ex:
+                        print ex
+                        pass
+
 
     def sendQuit(self):
         print "inside send quit"
@@ -202,6 +238,21 @@ class GameSpace:
     def quit(self):
         pygame.quit()
         reactor.stop()
+
+    def sendFoodPosition(self):
+        self.connection.transport.write("food data\n")
+        print self.food
+        for f in self.food:
+            #might need to send in order
+            # self.connection.transport.write(str(f.rect.topleft[0]) + ":" + str(f.rect.topleft[1]) + "\n")
+            data = "food:" + str(f) + ":" + str(self.food[f].rect.topleft[0]) + ":" + str(self.food[f].rect.topleft[1]) + "\n"
+            print "sending data: " + data
+            self.connection.transport.write(data)
+
+
+    def receiveFoodPosition(self):
+        self.food = {}
+        pass
 
 # Network Classes
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -224,7 +275,7 @@ class ClientConnection(Protocol):
         self.syncLoop.start(SYNC_LOOP_DELAY)
 
     def dataReceived(self, data):
-        #print "data: #", data, "#"
+        print "data: #", data, "#"
 
         # check if data is just a direction change
         if data == "right" or data == "left" or data == "up" or data == "down":
@@ -239,8 +290,8 @@ class ClientConnection(Protocol):
             #self.mainLoop.stop()
             self.gs.keepPlaying = True
             self.gs.main(self, 1)
-            #self.mainLoop.start(MAIN_LOOP_DELAY) #1/60th of a second
-        else: # we are syncing up positions completely
+        else:# we are syncing up positions completely
+            #print "#" + data.split("\n")[0] + "#"
             self.gs.receivePosition(data)
 
 class ClientConnectionFactory(ClientFactory):
@@ -319,7 +370,7 @@ class Food(pygame.sprite.Sprite):
         pass
 
 class Snake(pygame.sprite.Sprite):
-    def __init__(self, length, xpos, ypos, connection, gs=None):
+    def __init__(self, length, xpos, ypos, connection, player, gs=None):
         pygame.sprite.Sprite.__init__(self)
         self.gs = gs
 
@@ -335,6 +386,7 @@ class Snake(pygame.sprite.Sprite):
         self.alive = True
 
         self.connection = connection
+        self.player = player
 
         # push blocks into the blocks array
         # the second block (index 1) is the "head" because the first block
@@ -414,8 +466,13 @@ class Snake(pygame.sprite.Sprite):
         # call the increase len function on the snake
         
         for b in food: # check if our head collides with each of the other snake's blocks
-            if self.blocks[1].rect.colliderect(b.rect): # if the rectangles collide, returns true
-                b.randMove()
+            if self.blocks[1].rect.colliderect(food[b].rect): # if the rectangles collide, returns true
+                if self.player == 0:
+                    food[b].randMove()
+                    print "about to send data"
+                    data = "food:" + str(b) + ":" + str(food[b].rect.topleft[0]) + ":" + str(food[b].rect.topleft[1]) + "\n"
+                    print "sending data: " + data
+                    self.connection.transport.write(data)
                 self.increaselen()
 
     def wallcollide(self): 
